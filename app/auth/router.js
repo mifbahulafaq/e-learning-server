@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const multer = require('../../middlewares/upload');
 const photoConfig = require('../utils/photo');
-const { body, check } = require('express-validator');
+const { body } = require('express-validator');
 const bcrypt = require('bcrypt');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;

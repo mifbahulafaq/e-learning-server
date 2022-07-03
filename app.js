@@ -13,6 +13,7 @@ const decodeToken = require('./middlewares/decodeToken');
 
 //import routers
 const authRouter = require('./app/auth/router');
+const classRouter = require('./app/class/router');
 
 
 app.set('views', path.join(config.rootPath,'views'));
@@ -25,6 +26,7 @@ app.use(logger('dev'));
 app.use(decodeToken);
 
 app.use('/auth',authRouter);
+app.use('/api',classRouter);
 
 //Error handling router
 app.use((req,res,next)=>{
