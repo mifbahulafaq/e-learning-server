@@ -3,6 +3,7 @@ const path = require('path');
 const createError = require('http-errors');
 const express = require('express');
 const logger = require('morgan');
+const cors = require('cors');
 const app = express();
 const pool = require('./database');
 let config = require('./app/config');
@@ -14,6 +15,8 @@ const decodeToken = require('./middlewares/decodeToken');
 //import routers
 const authRouter = require('./app/auth/router');
 const classRouter = require('./app/class/router');
+const studentRouter = require('./app/student/router');
+const studentClassDiscuss = require('./app/class-discussion/router');
 
 
 app.set('views', path.join(config.rootPath,'views'));
@@ -24,9 +27,12 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(logger('dev'));
 app.use(decodeToken);
+app.use(cors())
 
 app.use('/auth',authRouter);
 app.use('/api',classRouter);
+app.use('/api',studentRouter);
+app.use('/api',studentClassDiscuss);
 
 //Error handling router
 app.use((req,res,next)=>{

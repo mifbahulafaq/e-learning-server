@@ -51,7 +51,7 @@ module.exports = {
 			})
 			res.json({
 				message:'Logged in successfully',
-				data: token
+				data: {token}
 			})
 		})(req,res,next)
 	},
@@ -81,11 +81,11 @@ module.exports = {
 				return next(err);
 			}
 			
-			({password, token, ...remains} = result.rows[0]);
+			({password, token, ...rest} = result.rows[0]);
 			
 			res.json({
 				message: 'Register is successful',
-				data: remains
+				data: rest
 			})
 		})
 	},

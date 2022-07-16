@@ -9,7 +9,7 @@ const HASH_ROUND = 10;
 const { querySync } = require('../../database');
 
 const noEmptyMsg = 'This field must be filled';
-const lengthMsg = 'Must be less than 5 or greater than 255 characters long';
+const lengthMsg = 'Must be greater than 255 or less than 5 characters long';
 const authValidator = [
 	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
 	body('gender').notEmpty().bail().withMessage(noEmptyMsg).isIn(['Male','Female']),
