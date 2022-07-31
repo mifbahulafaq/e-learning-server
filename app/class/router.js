@@ -8,7 +8,7 @@ const noEmptyMsg = 'This field must be filled';
 const lengthMsg = 'Must be greater than 255 or less than 5 characters long';
 
 const addValid = [
-	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
+	body('class_name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
 	body('description').if(body('description').exists()).isLength({min:3, max:255}).withMessage(lengthMsg),
 	body('schedule')
 	.if(body('schedule').exists())

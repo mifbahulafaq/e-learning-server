@@ -10,6 +10,32 @@ module.exports = {
 		try{
 			
 			const policy = policyFor(req.user);
+			
+			if(!policy.can('readAll', 'Student')){
+				return res.json({
+					error: 1,
+					message: "You're not allowed to perform this action"
+				})
+			}
+			
+			query = {
+				text: 'SELECT s.id_student, c.*, u.user_id uId, u.name uName, u.email uEmail, u.gender uGender, u.photo uPhoto, t.user_id tId, t.name tName, t.email tEmail, t.gender tGender, t.photo tPhoto FROM students s INNER JOIN classes c ON class = code_class INNER JOIN users u ON s.user = u.user_id INNER JOIN users t ON c.teacher = t.user_id WHERE "user" = $1',
+				values: [req.user?.user_id]
+			}
+			
+			result = await querySync(query);
+			res.json({data: result.rows})
+			
+		}catch(err){
+			next(err);
+		}
+	},
+	/*-----------------getByClass-------------------------*/
+	async getByClass(req, res, next){
+		
+		try{
+			
+			const policy = policyFor(req.user);
 			let query = {
 				text: 'SELECT teacher FROM classes WHERE code_class = $1',
 				values: [req.params.code_class]
@@ -89,7 +115,7 @@ module.exports = {
 		}
 		
 		const errInsert = validationResult(req);
-		let { code_class, user_id } = req.body;
+		let { class : classes, user } = req.body;
 		
 		if(!errInsert.isEmpty()){
 			return res.json({
@@ -99,8 +125,8 @@ module.exports = {
 		}
 		
 		const query = {
-			text: 'INSERT INTO students(code_class, user_id) VALUES($1, $2) RETURNING *',
-			values: [code_class, user_id,]
+			text: 'INSERT INTO students(class, "user") VALUES($1, $2) RETURNING *',
+			values: [classes, user]
 		}
 		try{
 			const result = await querySync(query);

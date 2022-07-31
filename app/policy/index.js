@@ -10,7 +10,8 @@ module.exports = function(user){
 		builder.can('readsingle','Class',{user_id: user.user_id})
 		
 		builder.can('create','Student')
-		builder.can('read','Student',{user_id: user.user_id})
+		builder.can('read','Student',{user_id: user.user_id}) //by code_class
+		builder.can('readAll','Student')
 		
 		builder.can('read','Class_discussion',{user_id: user.user_id})
 		builder.can('create','Class_discussion')

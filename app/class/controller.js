@@ -15,10 +15,10 @@ module.exports = {
 				message: "You're not allowed to perform this action"
 			})
 		}
-		
+		console.log(req.user)
 		const query = {
-			text: 'SELECT * FROM classes WHERE user_id=$1',
-			values: [req.user.user_id]
+			text: 'SELECT classes.*, user_id, users.name AS userName, email, gender, photo FROM classes JOIN users ON teacher = user_id WHERE teacher = $1',
+			values: [req.user?.user_id]
 		}
 		
 		try{
@@ -108,7 +108,7 @@ module.exports = {
 		}
 		
 		const errInsert = validationResult(req);
-		let { name, description, user_id, schedule, cobatime } = req.body;
+		let { class_name, description, schedule, cobatime } = req.body;
 		
 		if(!errInsert.isEmpty()){
 			return res.json({
@@ -124,8 +124,8 @@ module.exports = {
 		}
 		
 		const query = {
-			text: 'INSERT INTO classes(name, description, user_id, schedule) VALUES($1, $2, $3, $4) RETURNING *',
-			values: [name, description, req.user.user_id, schedule]
+			text: 'INSERT INTO classes(class_name, description, teacher, schedule) VALUES($1, $2, $3, $4) RETURNING *',
+			values: [class_name, description, req.user.user_id, schedule]
 		}
 		try{
 			const result = await querySync(query);

@@ -9,17 +9,19 @@ const lengthMsg6 = 'Must be less than 6 characters long';
 const intMsg = 'Input must be integer';
 
 const addValid = [
-	body('code_class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(intMsg).isLength({max:5}).withMessage(lengthMsg5),
-	body('user_id').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(intMsg).isLength({max:6}).withMessage(lengthMsg6)
+	body('class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(intMsg).isLength({max:5}).withMessage(lengthMsg5),
+	body('user').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(intMsg).isLength({max:6}).withMessage(lengthMsg6)
 ]
 
 
 const {
 	getStudents,
-	addStudent
+	addStudent,
+	getByClass
 } = require('./controller');
 
-router.get('/students/:code_class', getStudents);
+router.get('/students/:code_class', getByClass);
+router.get('/students', getStudents);
 router.post('/students', multer().none(), addValid, addStudent);
 
 module.exports = router;
