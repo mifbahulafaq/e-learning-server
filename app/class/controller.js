@@ -32,9 +32,10 @@ module.exports = {
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
 		
+		const codeClass = parseInt(req.params.code_class);
 		const query = {
 			text: 'SELECT classes.*, user_id, users.name AS userName, email, gender, photo FROM classes JOIN users ON teacher = user_id WHERE code_class = $1',
-			values: [req.params.code_class]
+			values: [codeClass? codeClass : undefined]
 		}
 		
 		try{
@@ -52,6 +53,7 @@ module.exports = {
 			res.json({data: result.rows})
 			
 		}catch(err){
+			console.log(err)
 			next(err);
 		}
 		
@@ -98,7 +100,8 @@ module.exports = {
 	
 	/*-----------------add-------------------------*/
 	async addClass(req, res, next){
-		
+		console.log('req.body')
+		console.log(req.body)
 		let policy = policyFor(req.user);
 		if(!policy.can('create', 'Class')){
 			return res.json({
@@ -108,7 +111,7 @@ module.exports = {
 		}
 		
 		const errInsert = validationResult(req);
-		let { class_name, description, schedule, cobatime } = req.body;
+		let { class_name, description } = req.body;
 		
 		if(!errInsert.isEmpty()){
 			return res.json({
@@ -117,15 +120,9 @@ module.exports = {
 			})
 		}
 		
-		if(schedule){
-			schedule = JSON.stringify(schedule)
-			.replace('[','{')
-			.replace(']','}');
-		}
-		
 		const query = {
-			text: 'INSERT INTO classes(class_name, description, teacher, schedule) VALUES($1, $2, $3, $4) RETURNING *',
-			values: [class_name, description, req.user.user_id, schedule]
+			text: 'INSERT INTO classes(class_name, description, teacher) VALUES($1, $2, $3) RETURNING *',
+			values: [class_name, description, req.user.user_id]
 		}
 		try{
 			const result = await querySync(query);
@@ -133,6 +130,7 @@ module.exports = {
 				data: result.rows
 			})
 		}catch(err){
+			console.log(err)
 			next(err)
 		}
 	},
@@ -171,10 +169,10 @@ module.exports = {
 			}
 			
 			//update data
-			const { name, description, schedule } = req.body;
+			const { name, description } = req.body;
 			const update = {
-				text: "UPDATE classes SET name = $1, description = $2, schedule = $3 WHERE code_class = $4 RETURNING *",
-				values: [name, description, schedule, req.params.code_class]
+				text: "UPDATE classes SET name = $1, description = $2 WHERE code_class = $4 RETURNING *",
+				values: [name, description, req.params.code_class]
 			}
 			
 			result = await querySync(update);

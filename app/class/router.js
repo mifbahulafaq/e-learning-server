@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const multer = require('../../middlewares/upload');
+const multer = require('multer');
 const { body } = require('express-validator');
 const moment = require('moment');
 
@@ -8,22 +8,22 @@ const noEmptyMsg = 'This field must be filled';
 const lengthMsg = 'Must be greater than 255 or less than 5 characters long';
 
 const addValid = [
-	body('class_name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
-	body('description').if(body('description').exists()).isLength({min:3, max:255}).withMessage(lengthMsg),
-	body('schedule')
+	body('class_name').customSanitizer(noWhitespace).notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
+	body('description').if(body('description').exists()).customSanitizer(noWhitespace).isLength({min:3, max:255}).withMessage(lengthMsg),
+	/*body('schedule')
 	.if(body('schedule').exists())
 	.isArray().bail().withMessage(isArrayMsg)
 	.custom(isDate)
-	.customSanitizer(dateSanitizer)
+	.customSanitizer(dateSanitizer)*/
 ]
 const updateValid = [
 	addValid[0],
-	body('description').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
-	body('schedule')
+	body('description').customSanitizer(noWhitespace).notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
+	/*body('schedule')
 	.notEmpty().bail().withMessage(noEmptyMsg)
 	.isArray().bail().withMessage(isArrayMsg)
 	.custom(isDate)
-	.customSanitizer(dateSanitizer)
+	.customSanitizer(dateSanitizer)*/
 ]
 
 
@@ -57,3 +57,4 @@ function isDate(value){
  function dateSanitizer(value){
 	 return value.map(e=>moment.parseZone(e).format("YYYY-MM-DD HH:mm:ssZ"));
 }
+function noWhitespace(v){return v.replace(/(^\s*)|(\s*$)/g, "")}

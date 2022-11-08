@@ -9,6 +9,9 @@ module.exports = function(user){
 		builder.can('read','Class')
 		builder.can('readsingle','Class',{user_id: user.user_id})
 		
+		builder.can('create','Schedule', {user_id: user.user_id})
+		builder.can('read','Schedule',{user_id: user.user_id})
+		
 		builder.can('create','Student')
 		builder.can('read','Student',{user_id: user.user_id}) //by code_class
 		builder.can('readAll','Student')
@@ -18,6 +21,7 @@ module.exports = function(user){
 		
 		builder.can('create','Matter')
 		builder.can('update','Matter',{user_id: user.user_id})
+		builder.can('delete','Matter',{user_id: user.user_id})
 		builder.can('readsingle','Matter',{user_id: user.user_id})
 		builder.can('read','Matter',{user_id: user.user_id})
 		
@@ -43,6 +47,8 @@ module.exports = function(user){
 		
 		builder.can('read','Assignment_answer',{user_id: user.user_id})
 		builder.can('create','Assignment_answer')
+		
+		builder.can('read', 'File', {user_id: user.user_id})
 	}
 	
 	

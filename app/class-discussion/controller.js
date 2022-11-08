@@ -26,7 +26,7 @@ module.exports = {
 			}
 			
 			query = {
-				text: 'SELECT class_discussions.*, classes.*, users.name , email, gender, photo  FROM class_discussions INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1',
+				text: 'SELECT class_discussions.*, classes.*, users.name , email, gender, photo  FROM class_discussions INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1 ORDER BY date',
 				values: [req.params.code_class]
 			}
 			
@@ -34,6 +34,7 @@ module.exports = {
 			res.json({data: result.rows})
 			
 		}catch(err){
+			console.log(err)
 			next(err);
 		}
 	},
@@ -99,7 +100,7 @@ module.exports = {
 		}
 		
 		const query = {
-			text: 'INSERT INTO class_discussions(date, text, code_class, "user") VALUES($1, $2, $3, $4) RETURNING *',
+			text: 'INSERT INTO class_discussions(date, text, class, "user") VALUES($1, $2, $3, $4) RETURNING *',
 			values: [date, text, code_class, req.user?.user_id]
 		}
 		try{
@@ -108,6 +109,7 @@ module.exports = {
 				data: result.rows
 			})
 		}catch(err){
+			console.log(err)
 			next(err)
 		}
 	},

@@ -107,29 +107,83 @@ module.exports = {
 	async addStudent(req, res, next){
 		
 		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Student')){
-			return res.json({
-				error: 1,
-				message: 'You have no access to add a student'
-			})
-		}
-		
-		const errInsert = validationResult(req);
 		let { class : classes, user } = req.body;
 		
-		if(!errInsert.isEmpty()){
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
-		const query = {
-			text: 'INSERT INTO students(class, "user") VALUES($1, $2) RETURNING *',
-			values: [classes, user]
-		}
 		try{
-			const result = await querySync(query);
+			
+			if(!policy.can('create', 'Student')){
+				return res.json({
+					error: 1,
+					message: "You aren't allowed to perform this action"
+				})
+			}
+			
+			const errInsert = validationResult(req);
+			if(!errInsert.isEmpty()){
+				return res.json({
+					error: 1,
+					field: errInsert.mapped()
+				})
+			}
+			
+			//check existing data
+			sql = {
+				text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+				values: [classes, user]
+			}
+			result = await querySync(sql);
+			
+			if(result.rowCount){
+				return res.json({
+					error: 1,
+					message: "The user have already joined this class"
+				})
+			}
+			
+			sql = {
+				text: 'INSERT INTO students(class, "user") VALUES($1, $2) RETURNING *',
+				values: [classes, user]
+			}
+			result = await querySync(sql);
+			
+			res.json({
+				data: result.rows
+			})
+		}catch(err){
+			next(err)
+		}
+	},
+	
+	
+	/*-----------------join class-------------------------*/
+	async joinClass(req, res, next){
+		
+		let policy = policyFor(req.user);
+		let { class : classes } = req.body;
+		
+		try{
+			
+			if(!policy.can('create', 'Student')){
+				return res.json({
+					error: 1,
+					message: "You aren't allowed to perform this action"
+				})
+			}
+			
+			const errInsert = validationResult(req);
+			if(!errInsert.isEmpty()){
+				return res.json({
+					error: 1,
+					field: errInsert.mapped()
+				})
+			}
+			
+			sql = {
+				text: 'INSERT INTO students(class, "user") VALUES($1, $2) RETURNING *',
+				values: [classes, req.user?.user_id]
+			}
+			result = await querySync(sql);
+			
 			res.json({
 				data: result.rows
 			})

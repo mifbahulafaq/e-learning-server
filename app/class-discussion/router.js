@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const multer = require('../../middlewares/upload');
+const multer = require('multer');
 const { body } = require('express-validator');
 const moment = require('moment');
 
@@ -10,7 +10,7 @@ const intMsg = 'Input must be integer';
 
 const addValid = [
 	body('date').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
-	body('text').notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg).isLength({min:1,max:255}).withMessage(lengthMsg),
+	body('text').customSanitizer(noWhitespace).notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg).isLength({min:1,max:255}).withMessage(lengthMsg),
 	body('code_class').notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg).isInt().bail().withMessage(intMsg).isLength({max:5}).withMessage(lengthMsg5)
 ]
 
@@ -37,3 +37,6 @@ function isDate(input){
 	return true;
 	
 }
+
+//custom sanitizer
+function noWhitespace(v){return v.replace(/(^\s*)|(\s*$)/g, "")}

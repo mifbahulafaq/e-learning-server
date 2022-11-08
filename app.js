@@ -11,12 +11,17 @@ let port = config.port || 3000;
 
 //import middlewares
 const decodeToken = require('./middlewares/decodeToken');
+const privateStaticFile = require('./middlewares/privateStaticFile');
 
 //import routers
 const authRouter = require('./app/auth/router');
 const classRouter = require('./app/class/router');
 const studentRouter = require('./app/student/router');
-const studentClassDiscuss = require('./app/class-discussion/router');
+const classDiscussRouter = require('./app/class-discussion/router');
+const matterDiscussRouter = require('./app/matter-discussion/router');
+const scheduleRouter = require('./app/schedule/router');
+const matterRouter = require('./app/matter/router');
+const examRouter = require('./app/exam/router');
 
 
 app.set('views', path.join(config.rootPath,'views'));
@@ -26,13 +31,19 @@ app.set('view engine', 'ejs');
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(logger('dev'));
-app.use(decodeToken);
 app.use(cors())
+app.use(decodeToken);
 
+app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
+app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
 app.use('/auth',authRouter);
 app.use('/api',classRouter);
 app.use('/api',studentRouter);
-app.use('/api',studentClassDiscuss);
+app.use('/api',classDiscussRouter);
+app.use('/api',matterDiscussRouter);
+app.use('/api',scheduleRouter);
+app.use('/api',matterRouter);
+app.use('/api',examRouter);
 
 //Error handling router
 app.use((req,res,next)=>{

@@ -1,7 +1,7 @@
 const { queryAsync, querySync } = require('../../database');
 const path = require('path');
 const { validationResult } = require('express-validator');
-const fs = require('fs')
+const removeFiles = require('../utils/removeFiles');
 const passport = require('passport');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -67,7 +67,7 @@ module.exports = {
 		}
 		
 		if(!errInsert.isEmpty()){
-			if(req.file) fs.unlinkSync(req.file.path);
+			if(req.file) removeFiles(req.file);
 			
 			return res.json({
 				error: 1,
@@ -77,7 +77,7 @@ module.exports = {
 		
 		queryAsync(query,(err,result)=>{
 			if(err){
-				if(req.file) fs.unlinkSync(req.file.path);
+				if(req.file) removeFiles(req.file);
 				return next(err);
 			}
 			

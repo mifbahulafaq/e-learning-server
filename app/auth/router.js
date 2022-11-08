@@ -1,6 +1,7 @@
 const router = require('express').Router();
-const multer = require('../../middlewares/upload');
-const photoConfig = require('../utils/photo');
+const multerMidd = require('../../middlewares/upload');
+const multer = require('multer');
+const { uploadPhoto} = require('../config');
 const { body } = require('express-validator');
 const bcrypt = require('bcrypt');
 const passport = require('passport');
@@ -24,7 +25,7 @@ const { register, login, logout, local, me} = require('./controller');
 
 passport.use(new LocalStrategy({usernameField: 'email'}, local));
 router.post('/login',multer().none(), login);
-router.post('/register',multer(photoConfig).single('photo'),authValidator, register);
+router.post('/register',multerMidd(uploadPhoto).single('photo'),authValidator, register);
 router.delete('/logout', logout);
 router.get('/me', me);
 
