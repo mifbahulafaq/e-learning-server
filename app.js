@@ -22,6 +22,7 @@ const matterDiscussRouter = require('./app/matter-discussion/router');
 const scheduleRouter = require('./app/schedule/router');
 const matterRouter = require('./app/matter/router');
 const examRouter = require('./app/exam/router');
+const assignmentRouter = require('./app/matt_ass/router')
 
 
 app.set('views', path.join(config.rootPath,'views'));
@@ -44,6 +45,7 @@ app.use('/api',matterDiscussRouter);
 app.use('/api',scheduleRouter);
 app.use('/api',matterRouter);
 app.use('/api',examRouter);
+app.use('/api',assignmentRouter);
 
 //Error handling router
 app.use((req,res,next)=>{
