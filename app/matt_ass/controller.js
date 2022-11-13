@@ -1,7 +1,5 @@
 const { querySync } = require('../../database');
 const { validationResult } = require('express-validator');
-const moment = require('moment');
-const fs = require('fs');
 const path = require('path');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
@@ -13,29 +11,34 @@ module.exports = {
 	async getMattAss(req, res, next){
 		
 		const id_matt = parseInt(req.params.id_matt);
+		
 		try{
 			//get the main data and authorize
-			const query = {
-				text: 'SELECT m.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo FROM matters m INNER JOIN classes c ON m.class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE id_matter = $1',
-				values: [id_matt || undefined]
+			
+			let sql = {
+				text: "SELECT class FROM matters WHERE id_matter = $1",
+				values: [id_matt]
 			}
-			const { rows: matterData } = await querySync(query);
-			//authorize
+			const singleMatter = await querySync(sql)
+			sql = {
+				text: "SELECT * FROM classes WHERE code_class = $1 AND teacher = $2",
+				values: [singleMatter.rows[0]?.class, req.user?.user_id]
+			}
+			const { rows: classData} = await querySync(sql)
 			
 			const policy = policyFor(req.user);
-			const subjectMatter = subject('Matter',{user_id: matterData[0]?.teacher});
+			const subjectMattAss = subject('Matt_ass',{user_id: classData[0]?.teacher});
 			
-			if(!policy.can('readsingle',subjectMatter)){
+			if(!policy.can('read',subjectMattAss)){
 				
 				let sqlGetStudent = {
 					text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
-					values: [matterData[0]?.class, req.user?.user_id]
+					values: [singleMatter.rows[0]?.class, req.user?.user_id]
 				}
 				const { rows: studentData} = await querySync(sqlGetStudent);
+				const subjectMattAss2 = subject('Matt_ass',{user_id: studentData[0]?.user});
 				
-				const subjectMatter2 = subject('Matter',{user_id: studentData[0]?.user});
-				
-				if(!policy.can('readsingle',subjectMatter2)){
+				if(!policy.can('read',subjectMattAss2)){
 					return res.json({
 						error: 1,
 						message: "You're not allowed to read this data"
@@ -43,17 +46,14 @@ module.exports = {
 				}
 			}
 			
-			const filePath = path.join(config.rootPath, `public/document/${req.params.filename}`);
-			
-			if(!fs.existsSync(filePath)){
-				return res.json({
-					error: 1,
-					message: "File's not found"
-				})
+			sql = {
+				text: "SELECT * FROM matt_ass WHERE id_matt = $1",
+				values: [id_matt]
 			}
+			const { rows: mattAssData } = await querySync(sql)
 			
 			return res.json({
-				path: `/private/document/${req.user.user_id}/${req.params.filename}`
+				data: mattAssData
 			})
 			
 		}catch(err){
@@ -62,6 +62,59 @@ module.exports = {
 		}
 		
 	},
+	async singleMattAss(req, res, next){
+	
+		try{
+			const id_matt_ass = parseInt(req.params.id_matt_ass);
+			let policy = policyFor(req.user);
+			
+			sql ={
+				text: 'SELECT class FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE ma.id_matt_ass = $1',
+				values: [id_matt_ass]
+			} 
+			let { rows: mattAssData } = await querySync(sql);
+			
+			sql ={
+				text: 'SELECT teacher FROM classes WHERE code_class = $1 AND teacher = $2',
+				values: [mattAssData[0]?.class, req.user?.user_id]
+			} 
+			let { rows: classData } = await querySync(sql);
+			let subjectMattAss = subject('Matt_ass', {user_id: classData[0]?.teacher})
+			
+			//teacher authorize
+			if(!policy.can('readsingle', subjectMattAss)){
+				
+				let sql_get_student = {
+					text: 'SELECT "user" FROM students WHERE class = $1 AND "user" = $2' ,
+					values: [mattAssData[0]?.class, req.user?.user_id]
+				}
+				const { rows: studentData } = await querySync(sql_get_student);
+				subjectMattAss = subject('Matt_ass', {user_id: studentData[0]?.user})
+				
+				//student authorize
+				if(!policy.can('readsingle', subjectMattAss)){
+					return res.json({
+						error: 1,
+						message: 'You have no access to read this data'
+					})
+				}
+			}
+			
+			let singleReadSql = {
+				text: 'SELECT * FROM matt_ass WHERE id_matt_ass = $1',
+				values: [id_matt_ass]
+			}
+			let { rows: singleData } = await querySync(singleReadSql);
+			
+			return res.json({
+				data: singleData
+			})
+			
+		}catch(err){
+			console.log(err)
+			next(err)
+		}
+	},
 	
 	/*-----------------add-------------------------*/
 	async addMattAss(req, res, next){
@@ -69,7 +122,7 @@ module.exports = {
 		let policy = policyFor(req.user);
 		if(!policy.can('create', 'Matt_ass')){
 			
-			removeFiles(req.files);
+			removeFiles([req.file]);
 			
 			return res.json({
 				error: 1,
@@ -78,12 +131,16 @@ module.exports = {
 		}
 		
 		const errInsert = validationResult(req);
-		let { schedule, name, duration, description, code_class, status } = req.body;
-		let attachment = req.files.map(e=>[e.filename, e.originalname]);
+		let { duration, text, id_matt } = req.body;
+		let attachment = []
+		if(req.file){
+			attachment[0] = req.file.filename
+			attachment[1] = req.file.originalname
+		}
 		
 		if(!errInsert.isEmpty()){
 			
-			removeFiles(req.files);
+			removeFiles([req.file]);
 			
 			return res.json({
 				error: 1,
@@ -91,15 +148,11 @@ module.exports = {
 			})
 		}
 		
-		console.log(req.body)
-		console.log(req.files)
-		return res.end()
-		
 		attachment = attachment.length ? JSON.stringify(attachment).replace(/\[/g,'{').replace(/\]/g,'}'): undefined;
 		
 		const query = {
-			text: 'INSERT INTO matters(schedule, name, duration, description, attachment, class, status) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-			values: [ schedule, name, duration, description, attachment, code_class, status ]
+			text: 'INSERT INTO matt_ass(duration, text, attachment, id_matt) VALUES($1, $2, $3, $4) RETURNING *',
+			values: [ duration, text, attachment, id_matt ]
 		}
 		
 		try{
@@ -108,8 +161,7 @@ module.exports = {
 				data: result.rows
 			})
 		}catch(err){
-			console.log('masuk err', err)
-			removeFiles(req.files);
+			removeFiles([req.file]);
 			
 			next(err)
 		}
@@ -118,18 +170,18 @@ module.exports = {
 	async deleteMattAss(req, res, next){
 		
 		try{
-			const id_matt = parseInt(req.params.id_matt);
+			const id_matt_ass = parseInt(req.params.id_matt_ass);
 			let sql ={
-				text: 'SELECT c.teacher FROM matters m INNER JOIN classes c ON m.class = c.code_class  WHERE id_matter=$1',
-				values: [id_matt || undefined]
+				text: 'SELECT teacher FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter INNER JOIN classes c ON m.class = c.code_class WHERE ma.id_matt_ass = $1 AND c.teacher = $2',
+				values: [id_matt_ass, req.user?.user_id]
 			} 
 			
-			const {rows} = await querySync(sql);
-			const subjectMatter = subject('Matter', {user_id: rows[0]?.teacher})
-			let policy = policyFor(req.user);
+			let { rows: mattAssData } = await querySync(sql);
 			
-			if(!policy.can('delete', subjectMatter)){
-				
+			let policy = policyFor(req.user);
+			let subjectMattAss = subject('Matt_ass', {user_id: mattAssData[0]?.teacher})
+			
+			if(!policy.can('delete', subjectMattAss)){
 				return res.json({
 					error: 1,
 					message: 'You have no access to delete this data'
@@ -137,19 +189,22 @@ module.exports = {
 			}
 			
 			let deleteSql = {
-				text: 'DELETE FROM matters WHERE id_matter=$1 RETURNING *',
-				values: [id_matt || undefined]
+				text: 'DELETE FROM matt_ass WHERE id_matt_ass = $1 RETURNING *',
+				values: [id_matt_ass]
 			}
-			let resultDelete = await querySync(deleteSql);
+			let resultDeleting = await querySync(deleteSql);
 			
-			if(resultDelete.rowCount) {
-				let removedFiles = resultDelete.rows[0]?.attachment.map(e=>({path: path.join(config.rootPath,`public/document/${e}`)}));
-				removeFiles(removedFiles);
+			if(resultDeleting.rowCount) {
+				let filePath = {
+					path: path.join(config.rootPath,`public/document/${resultDeleting.rows[0]?.attachment[0]}`)
+				}
+				
+				removeFiles([filePath]);
 			}
 			
 			return res.json({
-				message: 'The data is successfult deleted',
-				data: resultDelete.rows
+				message: 'The data is successfully deleted',
+				data: resultDeleting.rows
 			})
 			
 		}catch(err){

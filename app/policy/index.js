@@ -43,6 +43,7 @@ module.exports = function(user){
 		
 		builder.can('create','Matt_ass')
 		builder.can('read','Matt_ass',{user_id: user.user_id})
+		builder.can('readsingle','Matt_ass',{user_id: user.user_id})
 		builder.can('delete','Matt_ass',{user_id: user.user_id})
 		
 		builder.can('read','Assignment_answer',{user_id: user.user_id})
