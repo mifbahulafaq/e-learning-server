@@ -14,16 +14,14 @@ const arrMsg = "Must be Array"
 
 const addValid = [
 	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
-	body('description').if(body('description').exists()).customSanitizer(noWhitespace).isLength({min:3, max:255}).withMessage(lengthMsg),
 	body('schedule').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
-	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
+	body('text').if(body('text').exists()).customSanitizer(noWhitespace),
 	body('code_class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine)
 ]
 const editValid = [
 	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
-	body('description').if(body('description').exists()).customSanitizer(noWhitespace).isLength({min:3, max:255}).withMessage(lengthMsg),
+	body('text').if(body('text').exists()).customSanitizer(noWhitespace),
 	body('schedule').if(body('schedule').exists()).custom(isDate),
-	body('name').if(body('name').exists()).isLength({min:3, max:255}).withMessage(lengthMsg),
 	body('code_class').if(body('code_class').exists()).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine)
 ]
 
@@ -51,7 +49,13 @@ function isDate(value){
 	}
 	return true;
 }
-function noWhitespace(v){return v.replace(/(^\s*)|(\s*$)/g, "")}
+function noWhitespace(v){
+	
+	let input = v.replace(/(^\s*)|(\s*$)/g, "")
+	
+	return input.length? input: undefined
+
+}
 
 async function isMine(codeClass, { req }){
 	

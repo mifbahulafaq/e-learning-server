@@ -151,7 +151,7 @@ module.exports = {
 		attachment = attachment.length ? JSON.stringify(attachment).replace(/\[/g,'{').replace(/\]/g,'}'): undefined;
 		
 		const query = {
-			text: 'INSERT INTO matt_ass(duration, text, attachment, id_matt) VALUES($1, $2, $3, $4, $5) RETURNING *',
+			text: 'INSERT INTO matt_ass(duration, text, attachment, id_matt, title) VALUES($1, $2, $3, $4, $5) RETURNING *',
 			values: [ duration, text, attachment, id_matt, title ]
 		}
 		
@@ -162,7 +162,7 @@ module.exports = {
 			})
 		}catch(err){
 			removeFiles([req.file]);
-			
+			console.log()
 			next(err)
 		}
 	},

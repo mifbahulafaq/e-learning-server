@@ -11,7 +11,7 @@ const length255 = "Must be less than 255 character long"
 
 
 const addValidation = [
-	body('duration').notEmpty().bail().withMessage(notEmpty).isInt().bail().withMessage(isInt),
+	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isInt),
 	body('title').notEmpty({ignore_whitespace:true}).bail().withMessage(notEmpty).isLength({max:255}).bail().withMessage(length255),
 	body('text').if(body('text').exists()).customSanitizer(ignoreWhitespace),
 	body('id_matt').notEmpty().bail().withMessage(notEmpty).isInt().bail().withMessage(isInt).custom(isMine)
