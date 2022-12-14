@@ -5,7 +5,7 @@ const path = require('path');
 function mdd(upload){
 	return function(req, res, next){
 		upload(req,res,(err)=>{
-			console.log(err)
+			
 			if(err instanceof multer.MulterError || err && err.name === 'MulterError'){
 				return res.json({
 					error: 1,

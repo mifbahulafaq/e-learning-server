@@ -36,6 +36,7 @@ module.exports = function(user){
 		
 		builder.can('create','Exam_answer')
 		builder.can('read','Exam_answer',{user_id: user.user_id})
+		builder.can('readsingle','Exam_answer',{user_id: user.user_id})
 		builder.can('update','Exam_answer',{user_id: user.user_id})
 		
 		builder.can('read','Exam_answer_comment',{user_id: user.user_id})
