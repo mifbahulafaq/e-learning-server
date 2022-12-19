@@ -101,7 +101,11 @@ module.exports = {
 			}
 			
 			let singleReadSql = {
-				text: 'SELECT * FROM matt_ass WHERE id_matt_ass = $1',
+				text: `SELECT ma.*, json_build_object('user_id', u.user_id, 'email', u.email, 'gender', u.gender, 'name', u.name, 'photo', u.photo) teacher FROM matt_ass ma 
+					   INNER JOIN matters m ON ma.id_matt = m.id_matter
+					   INNER JOIN classes c ON m.class = c.code_class
+					   INNER JOIN users u ON c.teacher = u.user_id 
+					   WHERE id_matt_ass = $1`,
 				values: [id_matt_ass]
 			}
 			let { rows: singleData } = await querySync(singleReadSql);

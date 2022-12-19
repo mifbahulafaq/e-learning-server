@@ -16,19 +16,43 @@ module.exports = {
 		try{
 			
 			let sql = {
-				text: 'SELECT * FROM exams e INNER JOIN classes c ON e.code_class = c .code_class WHERE id_exm=$1',
+				text: 'SELECT * FROM exams e INNER JOIN classes c ON e.code_class = c.code_class WHERE id_exm=$1',
 				values: [idExm || undefined]
 			}
 			const { rows: classData } = await querySync(sql);
 			
-			const subjectExamAns = subject('Exam_answer',{user_id: classData[0]?.teacher})
+			let subjectExamAns = subject('Exam_answer',{user_id: classData[0]?.teacher})
 			
 			if(!policy.can('read', subjectExamAns)){
 				
-				return res.json({
-					error: 1,
-					message: "You're not allowed to perform this action"
-				})
+				sql = {
+					text: 'SELECT * FROM exams WHERE id_exm=$1',
+					values: [idExm || undefined]
+				}
+				const { rows: examData } = await querySync(sql);
+				
+				sql = {
+					text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+					values: [ examData[0]?.code_class, req.user.user_id]
+				}
+				const { rows: studentData } = await querySync(sql);
+				subjectExamAns = subject('Exam_answer',{user_id: studentData[0]?.user})
+				
+				if(!policy.can('read', subjectExamAns)){
+					return res.json({
+						error: 1,
+						message: "You're not allowed to perform this action"
+					})
+				}
+				
+				sql = {
+					text: 'SELECT ea.*, to_jsonb(e.*) exam, to_jsonb(c.*) class FROM exam_answers ea INNER JOIN exams e ON ea.id_exm=e.id_exm INNER JOIN classes c ON e.code_class=c.code_class WHERE ea.id_exm = $1 AND ea.user_id = $2',
+					values: [idExm || undefined, req.user.user_id]
+				}
+				
+				const { rows: userData } = await querySync(sql);
+				return res.json({data: userData})
+				
 			}
 			
 			sql = {
@@ -36,8 +60,8 @@ module.exports = {
 				values: [idExm || undefined]
 			}
 			
-			const { rows: examAnsData } = await querySync(sql);
-			res.json({data: examAnsData})
+			const { rows: teacherData } = await querySync(sql);
+			res.json({data: teacherData})
 			
 		}catch(err){
 			console.log(err)
@@ -146,13 +170,20 @@ module.exports = {
 				})
 			}
 			
-			//insert
 			content = content.length? `{${JSON.stringify(content).replace('[', '{').replace(']', '}')}}`: undefined
 			sql = {
 				text: 'INSERT INTO exam_answers(content, id_exm, user_id) VALUES($1, $2, $3) RETURNING *',
 				values: [ content, id_exm, req.user?.user_id ]
 			}
+			const sql2 = {
+				text: 'UPDATE exams SET total_answers = total_answers + 1 WHERE id_exm = $1',
+				values: [ id_exm ]
+			}
+			//insert
 			const insertData = await querySync(sql);
+			
+			//update total answers
+			await querySync(sql2)
 			
 			res.json({
 				data: insertData.rows
