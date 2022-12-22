@@ -27,7 +27,7 @@ const {
 	joinClass
 } = require('./controller');
 
-router.get('/students/:code_class', getByClass);
+router.get('/students/by-class/:code_class', getByClass);
 router.get('/students', getStudents);
 router.post('/students/join-class', multer().none(), joinValid, joinClass);
 router.post('/students/add', multer().none(), addValid, addStudent);

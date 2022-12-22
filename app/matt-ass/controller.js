@@ -11,6 +11,7 @@ module.exports = {
 	async getMattAss(req, res, next){
 		
 		const id_matt = parseInt(req.params.id_matt);
+		const { no_answer } = req.query
 		
 		try{
 			//get the main data and authorize
@@ -46,10 +47,23 @@ module.exports = {
 				}
 			}
 			
-			sql = {
-				text: "SELECT * FROM matt_ass WHERE id_matt = $1",
-				values: [id_matt]
+			if(parseInt(no_answer)){
+				
+				//filter by query strings
+				sql = {
+					text: `SELECT ma.* FROM matt_ass ma
+						   INNER JOIN ass_answers aa ON ma.id_matt_ass != aa.id_matt_ass
+						   WHERE ma.id_matt = $1 AND aa.user_id = $2`,
+					values: [id_matt, req.user.user_id]
+				}
+			}else{
+				
+				sql = {
+					text: 'SELECT * FROM matt_ass WHERE id_matt = $1',
+					values: [id_matt]
+				}
 			}
+			
 			const { rows: mattAssData } = await querySync(sql)
 			
 			return res.json({

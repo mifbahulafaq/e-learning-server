@@ -5,6 +5,7 @@ const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 const removeFiles = require('../utils/removeFiles');
 const config = require('../config');
+const fs = require('fs')
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -56,7 +57,9 @@ module.exports = {
 			}
 			
 			sql = {
-				text: 'SELECT ea.*, to_jsonb(e.*) exam, to_jsonb(c.*) class FROM exam_answers ea INNER JOIN exams e ON ea.id_exm=e.id_exm INNER JOIN classes c ON e.code_class=c.code_class WHERE ea.id_exm = $1',
+				text: `SELECT ea.*, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user" FROM exam_answers ea
+					   INNER JOIN users u ON ea.user_id=u.user_id
+					   WHERE ea.id_exm = $1`,
 				values: [idExm || undefined]
 			}
 			
@@ -291,4 +294,65 @@ module.exports = {
 		}
 	}
 	*/
+	async getAttachment(req, res, next){
+		
+		const policy = policyFor(req.user)
+		const id_exm_ans = parseInt(req.params.id_exm_ans)
+		const filename = req.params.filename
+		
+		//student auth
+		let sql = {
+			text: "SELECT user_id FROM exam_answers WHERE id_exm_ans = $1",
+			values: [id_exm_ans || undefined]
+		}
+		const { rows: studentData } = await querySync(sql)
+		let subjectExamAns = subject('Exam_answer', { user_id: studentData[0]?.user_id})
+		
+		if(!policy.can('readsingle', subjectExamAns)){
+			
+			//teacher auth
+			let sql = {
+				text: `SELECT c.teacher FROM exam_answers ea 
+					   INNER JOIN exams e ON ea.id_exm = e.id_exm
+					   INNER JOIN classes c ON e.code_class = c.code_class
+					   WHERE id_exm_ans = $1`,
+				values: [id_exm_ans || undefined]
+			}
+			const { rows: teacherData } = await querySync(sql)
+			subjectExamAns = subject('Exam_answer', { user_id: teacherData[0]?.teacher})
+			
+			if(!policy.can('readsingle', subjectExamAns)){
+				return res.json({
+					error: 1,
+					message: "You're not allowed to read this attachment"
+				})
+			}
+			
+		}
+		
+		sql = {
+			text: "SELECT user_id FROM exam_answers WHERE id_exm_ans = $1 AND $2 = ANY(content)",
+			values: [id_exm_ans || undefined, filename]
+		}
+		const fileData = await querySync(sql)
+		
+		if(fileData.rowCount){
+			
+			const filePath = path.join(config.rootPath, `/public/document/${filename}`)
+			if(fs.existsSync(filePath)){
+				return res.sendFile(filePath,{
+					headers: {
+						'Content-Disosition': `inline; filename=${filename}`
+					}
+				})
+			}
+		}
+		
+		return res.json({
+			error: 1,
+			message: "File not found"
+		})
+		
+		
+	}
 }

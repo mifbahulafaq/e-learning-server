@@ -25,11 +25,13 @@ const {
 	getByExam,
 	getSingle,
 	addAnswer,
-	rate
+	rate,
+	getAttachment
 } = require('./controller');
 
 router.get('/exam-answers/by-exam/:id_exm', getByExam);
 router.get('/exam-answers/:id_exm_ans', getSingle);
+router.get('/exam-answers/:id_exm_ans/:filename', getAttachment);
 router.put('/exam-answers', multer(uploadDoct).single('content') ,fileToBody('content'), addValid, addAnswer);
 router.put('/exam-answers/:id_exm_ans/rate', multer2().none(), rateValid, rate);
 

@@ -20,11 +20,13 @@ const addValid = [
 const {
 	getByAss,
 	getSingle,
-	addAnswer
+	addAnswer,
+	getAttachment
 } = require('./controller');
 
 router.get('/assignment-answers/by-matt-ass/:id_matt_ass', getByAss);
 router.get('/assignment-answers/:id_ass_ans', getSingle);
+router.get('/assignment-answers/:id_ass_ans/:filename', getAttachment);
 router.put('/assignment-answers', multer(uploadDoct).single('content') ,fileToBody('content'), addValid, addAnswer);
 
 module.exports = router;

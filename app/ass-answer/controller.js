@@ -5,6 +5,7 @@ const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 const removeFiles = require('../utils/removeFiles');
 const config = require('../config');
+const fs = require('fs')
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -12,7 +13,7 @@ module.exports = {
 		
 		const id_matt_ass = parseInt(req.params.id_matt_ass)
 		const policy = policyFor(req.user);
-		
+		console.log(req.query)
 		try{
 			
 			let sql = {
@@ -238,4 +239,71 @@ module.exports = {
 		}
 	}
 	*/
+	async getAttachment(req, res, next){
+		
+		try{
+			const policy = policyFor(req.user)
+			const id_ass_ans = parseInt(req.params.id_ass_ans)
+			const filename = req.params.filename
+			
+			//student auth
+			let sql = {
+				text: "SELECT user_id FROM ass_answers WHERE id_ass_answer = $1",
+				values: [id_ass_ans || undefined]
+			}
+			const { rows: studentData } = await querySync(sql)
+			let subjectExamAns = subject('Assignment_answer', { user_id: studentData[0]?.user_id})
+			
+			if(!policy.can('readsingle', subjectExamAns)){
+				
+				//teacher auth
+				sql = {
+					text: `SELECT c.teacher FROM ass_answers aa 
+						   INNER JOIN matt_ass ma ON aa.id_matt_ass = ma.id_matt_ass
+						   INNER JOIN matters m ON ma.id_matt = m.id_matter
+						   INNER JOIN classes c ON m.class = c.code_class
+						   WHERE aa.id_ass_answer = $1`,
+					values: [id_ass_ans || undefined]
+				}
+				const { rows: teacherData } = await querySync(sql)
+				subjectExamAns = subject('Assignment_answer', { user_id: teacherData[0]?.teacher})
+				
+				if(!policy.can('readsingle', subjectExamAns)){
+					return res.json({
+						error: 1,
+						message: "You're not allowed to read this attachment"
+					})
+				}
+				
+			}
+			
+			sql = {
+				text: 'SELECT content FROM ass_answers WHERE id_ass_answer = $1 AND $2 = ANY(content)',
+				values: [id_ass_ans || undefined, filename]
+			} 
+			const fileData = await querySync(sql)
+			
+			if(fileData.rowCount){
+			
+				const filePath = path.join(config.rootPath, `/public/document/${filename}`)
+				if(fs.existsSync(filePath)){
+					
+					return res.sendFile(filePath,{
+						headers: {
+							'Content-Disosition': `inline; filename=${filename}`
+						}
+					})
+				}
+			}
+			
+			res.json({
+				error: 1,
+				message: "File not found"
+			})
+			
+		}catch(err){
+			next(err)
+		}
+		
+	}
 }
