@@ -233,12 +233,11 @@ module.exports = {
 			}
 			
 			sql = {
-				text: 'UPDATE exam_answers SET score = $1 WHERE id_exm_ans = $2 RETURNING *',
+				text: 'UPDATE exam_answers SET score = $1, rated = true WHERE id_exm_ans = $2 RETURNING *',
 				values: [ req.body.score, id_exm_ans ]
 			}
 			
 			//updating the data
-			const columns = ['schedule',  'name',  'duration', 'description', 'attachment', 'code_class'];
 			let updateSCore = await querySync(sql);
 			
 			res.json({

@@ -126,20 +126,6 @@ module.exports = {
 				})
 			}
 			
-			//check existing data
-			sql = {
-				text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
-				values: [classes, user]
-			}
-			result = await querySync(sql);
-			
-			if(result.rowCount){
-				return res.json({
-					error: 1,
-					message: "The user have already joined this class"
-				})
-			}
-			
 			sql = {
 				text: 'INSERT INTO students(class, "user") VALUES($1, $2) RETURNING *',
 				values: [classes, user]

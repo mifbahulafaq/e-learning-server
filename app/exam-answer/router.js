@@ -12,13 +12,14 @@ const fileToBody = require('../../middlewares/locateFile')
 const isIntMessage = "Input must be a integer";
 const noEmptyMsg = 'This field must be filled';
 const lengthMsg = "mustn't be more than 3 digits ";
+const floatMsg = "mustn't be less than 100";
 
 const addValid = [
 	body('id_exm').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).custom(isMine),
 	body('content').notEmpty().bail().withMessage(noEmptyMsg)
 ]
 const rateValid = [
-	body('score').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 3}).withMessage(lengthMsg)
+	body('score').notEmpty().bail().withMessage(noEmptyMsg).isFloat({max: 100}).withMessage(floatMsg)
 ]
 
 const {

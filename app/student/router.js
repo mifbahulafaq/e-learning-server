@@ -88,9 +88,20 @@ async function addStudentValidation(userId, { req }){
 	}
 	try{
 		let result = await querySync(sql);
-		console.log(result)
+		
 		if(!result.rowCount || result.rows[0]?.user_id === req.user?.user_id){
-			return Promise.reject("You cannot add this student, check the id user again")
+			return Promise.reject("You cannot add this student. check the id user again")
+		}
+		
+		//check existing data
+		sql = {
+			text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+			values: [req.body.class, userId]
+		}
+		result = await querySync(sql);
+		
+		if(result.rowCount){
+			return Promise.reject("The user have already joined this class")
 		}
 		
 	}catch(err){
