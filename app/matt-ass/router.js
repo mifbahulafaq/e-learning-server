@@ -21,10 +21,12 @@ const {
 	addMattAss,
 	deleteMattAss,
 	getMattAss,
+	getByMatter,
 	singleMattAss
 } = require('./controller');
 
-router.get('/matter-assignments/by-matter/:id_matt', getMattAss)
+router.get('/matter-assignments/by-matter/:id_matt', getByMatter)
+router.get('/matter-assignments', getMattAss)
 router.get('/matter-assignments/:id_matt_ass', singleMattAss)
 router.post('/matter-assignments', multer(config.uploadDoct).single('attachment'), addValidation, addMattAss)
 router.delete('/matter-assignments/:id_matt_ass', deleteMattAss)

@@ -10,6 +10,100 @@ module.exports = {
 	/*-----------------get-------------------------*/
 	async getMattAss(req, res, next){
 		
+		let { by, status, aClass = "" } = req.query
+		let filter = {
+			status: "",
+			class: ""
+		}
+		
+		const policy = policyFor(req.user)
+		if(!policy.can('readall', 'Matt_ass')){
+			return res.json({
+				error: 1,
+				message: "You aren't allowed to access this resource"
+			})
+		}
+		
+		//set sql filter
+		//filter aClass
+		filter.class = parseInt(aClass)?`AND m.class = ${parseInt(aClass)}`:""
+		//filter statuts
+		switch(status){
+			case "none":
+				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1)"
+				break;
+			case "done":
+				filter.status = "AND ma.id_matt_ass IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1)"
+				break;
+			case "expired":
+				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND now() >= ma.date + concat(ma.duration, ' S')::interval"
+			break;
+		}
+		
+		try{
+			//get the main data and authorize
+			let sql_by_student = {
+				text: `SELECT ma.*, to_jsonb(ma.*) matter, to_jsonb(c.*) class FROM matt_ass ma
+					   INNER JOIN matters m ON ma.id_matt = m.id_matter
+					   INNER JOIN classes c ON m.class = c.code_class
+					   WHERE c.code_class IN (SELECT class FROM class_students WHERE "user" = $1) ${filter.status} ${filter.class}`,
+				values: [req.user.user_id]
+			}
+			
+			let sql_by_teacher = {
+				text: `SELECT ma.*, to_jsonb(ma.*) matter, to_jsonb(c.*) class FROM matt_ass ma
+					   INNER JOIN matters m ON ma.id_matt = m.id_matter
+					   INNER JOIN classes c ON m.class = c.code_class
+					   WHERE c.teacher = $1 ${filter.class}`,
+				values: [req.user.user_id]
+			}
+			let resultByStudent = {}
+			let resultByTeacher = {}
+			
+			switch(by){
+				case "student":
+				
+					resultByStudent = await querySync(sql_by_student)
+					return res.json({
+						data: resultByStudent.rows,
+						rowCount: resultByStudent.rowCount 
+					})
+				
+				case "teacher":
+					resultByTeacher = await querySync(sql_by_teacher)
+					return res.json({
+						data: resultByTeacher.rows,
+						rowCount: resultByTeacher.rowCount 
+					})
+				default:
+					resultByStudent = await querySync(sql_by_student)
+					resultByTeacher = await querySync(sql_by_teacher)
+					
+					return res.json({
+						data: {
+							received_assignments: {
+								data: resultByStudent.rows,
+								count: resultByStudent.rowCount
+							},
+							created_assignments: {
+								data: resultByTeacher.rows,
+								count: resultByTeacher.rowCount
+							}
+						}
+					})
+					
+			}
+			
+			
+		}catch(err){
+			console.log(err)
+			next(err);
+		}
+		
+	},
+	/*-----------------get by matter-------------------------*/
+	async getByMatter(req, res, next){
+		
 		const id_matt = parseInt(req.params.id_matt);
 		const { no_answer } = req.query
 		

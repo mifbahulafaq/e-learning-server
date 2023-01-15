@@ -16,7 +16,7 @@ const privateStaticFile = require('./middlewares/privateStaticFile');
 //import routers
 const authRouter = require('./app/auth/router');
 const classRouter = require('./app/class/router');
-const studentRouter = require('./app/student/router');
+const classStudentRouter = require('./app/class-student/router');
 const classDiscussRouter = require('./app/class-discussion/router');
 const matterDiscussRouter = require('./app/matter-discussion/router');
 const scheduleRouter = require('./app/schedule/router');
@@ -42,7 +42,7 @@ app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
 app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
 app.use('/auth',authRouter);
 app.use('/api',classRouter);
-app.use('/api',studentRouter);
+app.use('/api',classStudentRouter);
 app.use('/api',classDiscussRouter);
 app.use('/api',matterDiscussRouter);
 app.use('/api',scheduleRouter);

@@ -12,9 +12,9 @@ module.exports = function(user){
 		builder.can('create','Schedule', {user_id: user.user_id})
 		builder.can('read','Schedule',{user_id: user.user_id})
 		
-		builder.can('create','Student')
-		builder.can('read','Student',{user_id: user.user_id}) //by code_class
-		builder.can('readAll','Student')
+		builder.can('create','Class_student')
+		builder.can('read','Class_student',{user_id: user.user_id}) //by code_class
+		builder.can('readAll','Class_student')
 		
 		builder.can('read','Class_discussion',{user_id: user.user_id})
 		builder.can('create','Class_discussion')
@@ -44,6 +44,7 @@ module.exports = function(user){
 		
 		builder.can('create','Matt_ass')
 		builder.can('read','Matt_ass',{user_id: user.user_id})
+		builder.can('readall','Matt_ass')
 		builder.can('readsingle','Matt_ass',{user_id: user.user_id})
 		builder.can('delete','Matt_ass',{user_id: user.user_id})
 		

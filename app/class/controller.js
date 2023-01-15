@@ -8,23 +8,31 @@ module.exports = {
 	/*-----------------get-------------------------*/
 	async getclasses(req, res, next){
 		
-		const policy = policyFor(req.user);
+		const policy = policyFor(req.user)
+			
 		if(!policy.can('read', 'Class')){
 			return res.json({
 				error: 1,
 				message: "You're not allowed to perform this action"
 			})
 		}
-		console.log(req.user)
-		const query = {
-			text: 'SELECT classes.*, user_id, users.name AS userName, email, gender, photo FROM classes JOIN users ON teacher = user_id WHERE teacher = $1',
-			values: [req.user?.user_id]
-		}
 		
 		try{
-			const result = await querySync(query);
-			res.json({data: result.rows})
+			let sql_by_teacher = {
+				text: `SELECT c.*, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) teacher FROM classes c
+					   INNER JOIN users u ON c.teacher = u.user_id
+					   WHERE c.teacher = $1`,
+				values: [req.user.user_id]
+			}
+			
+			const result = await querySync(sql_by_teacher)
+			
+			return res.json({
+				data: result.rows,
+				count: result.rowCount
+			})
 		}catch(err){
+			console.log(err)
 			next(err);
 		}
 	},

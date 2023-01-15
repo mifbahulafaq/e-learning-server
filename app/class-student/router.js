@@ -27,10 +27,10 @@ const {
 	joinClass
 } = require('./controller');
 
-router.get('/students/by-class/:code_class', getByClass);
-router.get('/students', getStudents);
-router.post('/students/join-class', multer().none(), joinValid, joinClass);
-router.post('/students/add', multer().none(), addValid, addStudent);
+router.get('/class-students/by-class/:code_class', getByClass);
+router.get('/class-students', getStudents);
+router.post('/class-students/join-class', multer().none(), joinValid, joinClass);
+router.post('/class-students/add', multer().none(), addValid, addStudent);
 
 module.exports = router;
 
@@ -49,7 +49,7 @@ async function joinClassValidation(codeClass, { req }){
 		
 		//check existing data
 		sql = {
-			text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+			text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
 			values: [codeClass, req.user?.user_id]
 		}
 		result = await querySync(sql);
@@ -95,7 +95,7 @@ async function addStudentValidation(userId, { req }){
 		
 		//check existing data
 		sql = {
-			text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+			text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
 			values: [req.body.class, userId]
 		}
 		result = await querySync(sql);

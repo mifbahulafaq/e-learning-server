@@ -11,7 +11,7 @@ module.exports = {
 			
 			const policy = policyFor(req.user);
 			
-			if(!policy.can('readAll', 'Student')){
+			if(!policy.can('readAll', 'Class_student')){
 				return res.json({
 					error: 1,
 					message: "You're not allowed to perform this action"
@@ -19,7 +19,7 @@ module.exports = {
 			}
 			
 			query = {
-				text: 'SELECT s.id_student, c.*, u.user_id uId, u.name uName, u.email uEmail, u.gender uGender, u.photo uPhoto, t.user_id tId, t.name tName, t.email tEmail, t.gender tGender, t.photo tPhoto FROM students s INNER JOIN classes c ON class = code_class INNER JOIN users u ON s.user = u.user_id INNER JOIN users t ON c.teacher = t.user_id WHERE "user" = $1',
+				text: 'SELECT cs.id_student, c.*, u.user_id uId, u.name uName, u.email uEmail, u.gender uGender, u.photo uPhoto, t.user_id tId, t.name tName, t.email tEmail, t.gender tGender, t.photo tPhoto FROM class_students cs INNER JOIN classes c ON class = code_class INNER JOIN users u ON cs.user = u.user_id INNER JOIN users t ON c.teacher = t.user_id WHERE "user" = $1',
 				values: [req.user?.user_id]
 			}
 			
@@ -27,6 +27,7 @@ module.exports = {
 			res.json({data: result.rows})
 			
 		}catch(err){
+			console.log(err)
 			next(err);
 		}
 	},
@@ -42,7 +43,7 @@ module.exports = {
 			}
 			
 			let result = await querySync(query);
-			const subjectStudent = subject('Student', {user_id: result.rows[0]?.teacher})
+			const subjectStudent = subject('Class_student', {user_id: result.rows[0]?.teacher})
 			
 			if(!policy.can('read', subjectStudent)){
 				return res.json({
@@ -52,7 +53,7 @@ module.exports = {
 			}
 			
 			query = {
-				text: 'SELECT students.*, classes.*, users.name , email, gender, photo  FROM students INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1',
+				text: 'SELECT class_students.*, classes.*, users.name , email, gender, photo  FROM class_students INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1',
 				values: [req.params.code_class]
 			}
 			
@@ -111,7 +112,7 @@ module.exports = {
 		
 		try{
 			
-			if(!policy.can('create', 'Student')){
+			if(!policy.can('create', 'Class_student')){
 				return res.json({
 					error: 1,
 					message: "You aren't allowed to perform this action"
@@ -127,7 +128,7 @@ module.exports = {
 			}
 			
 			sql = {
-				text: 'INSERT INTO students(class, "user") VALUES($1, $2) RETURNING *',
+				text: 'INSERT INTO class_students(class, "user") VALUES($1, $2) RETURNING *',
 				values: [classes, user]
 			}
 			result = await querySync(sql);
@@ -149,7 +150,7 @@ module.exports = {
 		
 		try{
 			
-			if(!policy.can('create', 'Student')){
+			if(!policy.can('create', 'Class_student')){
 				return res.json({
 					error: 1,
 					message: "You aren't allowed to perform this action"
@@ -165,7 +166,7 @@ module.exports = {
 			}
 			
 			sql = {
-				text: 'INSERT INTO students(class, "user") VALUES($1, $2) RETURNING *',
+				text: 'INSERT INTO class_students(class, "user") VALUES($1, $2) RETURNING *',
 				values: [classes, req.user?.user_id]
 			}
 			result = await querySync(sql);
