@@ -3,6 +3,8 @@ const { AbilityBuilder, Ability } = require('@casl/ability');
 module.exports = function(user){
 	const builder = new AbilityBuilder();
 	if(user){
+		builder.can('readsingle','User', {user_id: user.user_id})
+		
 		builder.can('create','Class')
 		builder.can('update','Class',{user_id: user.user_id})
 		builder.can('delete','Class',{user_id: user.user_id})

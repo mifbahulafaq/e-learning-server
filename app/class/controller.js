@@ -40,25 +40,47 @@ module.exports = {
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
 		
-		const codeClass = parseInt(req.params.code_class);
-		const query = {
+		const codeClass = parseInt(req.params.code_class)
+		const { user_id } = req.user || {}
+		const policy = policyFor(req.user);
+		
+		// authorization student sql
+		const studentSql = {
+			text : `SELECT c.*, user_id, u.name AS userName, email, gender, photo FROM class_students cs 
+					INNER JOIN classes c ON c.code_class = cs.class
+					INNER JOIN users u ON c.teacher = u.user_id
+					WHERE "user" = $1 AND class = $2`,
+			values : [ user_id, codeClass || undefined]
+		}
+		// teacher student sql
+		const teacherSql = {
 			text: 'SELECT classes.*, user_id, users.name AS userName, email, gender, photo FROM classes JOIN users ON teacher = user_id WHERE code_class = $1',
-			values: [codeClass? codeClass : undefined]
+			values: [codeClass || undefined]
 		}
 		
 		try{
 			
-			const result = await querySync(query);
-			const policy = policyFor(req.user);
-			const subjectClass = subject('Class',{user_id: result.rows[0]?.teacher});
+			const resultStudent = await querySync(studentSql)
+			let subjectClass = subject('Class',{user_id: resultStudent.rowCount? user_id: undefined});
 			
-			if(!policy.can('readsingle',subjectClass)){
-				return res.json({
-					error: 1,
-					message: "You're not allowed to perform this action"
-				})
+			//student authorization
+			if(!policy.can('readsingle', subjectClass)){
+				
+				const resultTeacher = await querySync(teacherSql);
+				subjectClass = subject('Class',{user_id: resultTeacher.rows[0]?.teacher});
+				
+				//teacher authorization
+				if(!policy.can('readsingle',subjectClass)){
+					return res.json({
+						error: 1,
+						message: "You're not allowed to perform this action"
+					})
+				}
+				res.json({data: resultTeacher.rows[0]})
+				
 			}
-			res.json({data: result.rows})
+			
+			return res.json({ data: resultStudent.rows[0]})
 			
 		}catch(err){
 			console.log(err)
@@ -108,8 +130,7 @@ module.exports = {
 	
 	/*-----------------add-------------------------*/
 	async addClass(req, res, next){
-		console.log('req.body')
-		console.log(req.body)
+		
 		let policy = policyFor(req.user);
 		if(!policy.can('create', 'Class')){
 			return res.json({
@@ -119,7 +140,7 @@ module.exports = {
 		}
 		
 		const errInsert = validationResult(req);
-		let { class_name, description } = req.body;
+		let { class_name, description, color } = req.body;
 		
 		if(!errInsert.isEmpty()){
 			return res.json({
@@ -129,8 +150,8 @@ module.exports = {
 		}
 		
 		const query = {
-			text: 'INSERT INTO classes(class_name, description, teacher) VALUES($1, $2, $3) RETURNING *',
-			values: [class_name, description, req.user.user_id]
+			text: 'INSERT INTO classes(class_name, description, color, teacher) VALUES($1, $2, $3, $4) RETURNING *',
+			values: [class_name, description, color, req.user.user_id]
 		}
 		try{
 			const result = await querySync(query);

@@ -10,6 +10,7 @@ const lengthMsg = 'Must be greater than 255 or less than 5 characters long';
 const addValid = [
 	body('class_name').customSanitizer(noWhitespace).notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
 	body('description').if(body('description').exists()).customSanitizer(noWhitespace).isLength({min:3, max:255}).withMessage(lengthMsg),
+	body('color').isLength({max: 7}).withMessage("Cannot be greater than 7 characters")
 	/*body('schedule')
 	.if(body('schedule').exists())
 	.isArray().bail().withMessage(isArrayMsg)

@@ -10,7 +10,8 @@ module.exports = {
 	/*-----------------get-------------------------*/
 	async getMattAss(req, res, next){
 		
-		let { by, status, aClass = "" } = req.query
+		let { by, status, aClass = "", skip, limit = 10} = req.query
+		
 		let filter = {
 			status: "",
 			class: ""
@@ -30,13 +31,13 @@ module.exports = {
 		//filter statuts
 		switch(status){
 			case "none":
-				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1)"
+				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ( now() < ma.date + concat(ma.duration, ' S')::interval OR ma.duration = 0 )"
 				break;
 			case "done":
 				filter.status = "AND ma.id_matt_ass IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1)"
 				break;
 			case "expired":
-				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND now() >= ma.date + concat(ma.duration, ' S')::interval"
+				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ma.duration != 0 AND now() >= ma.date + concat(ma.duration, ' S')::interval"
 			break;
 		}
 		
@@ -44,6 +45,14 @@ module.exports = {
 			//get the main data and authorize
 			let sql_by_student = {
 				text: `SELECT ma.*, to_jsonb(ma.*) matter, to_jsonb(c.*) class FROM matt_ass ma
+					   INNER JOIN matters m ON ma.id_matt = m.id_matter
+					   INNER JOIN classes c ON m.class = c.code_class
+					   WHERE c.code_class IN (SELECT class FROM class_students WHERE "user" = $1) ${filter.status} ${filter.class}
+					   LIMIT $2 OFFSET $3`,
+				values: [req.user.user_id, limit, skip]
+			}
+			let sql_student_count = {
+				text: `SELECT * FROM matt_ass ma
 					   INNER JOIN matters m ON ma.id_matt = m.id_matter
 					   INNER JOIN classes c ON m.class = c.code_class
 					   WHERE c.code_class IN (SELECT class FROM class_students WHERE "user" = $1) ${filter.status} ${filter.class}`,
@@ -54,40 +63,57 @@ module.exports = {
 				text: `SELECT ma.*, to_jsonb(ma.*) matter, to_jsonb(c.*) class FROM matt_ass ma
 					   INNER JOIN matters m ON ma.id_matt = m.id_matter
 					   INNER JOIN classes c ON m.class = c.code_class
+					   WHERE c.teacher = $1 ${filter.class}
+					   LIMIT $2 OFFSET $3`,
+				values: [req.user.user_id, limit, skip]
+			}
+			let sql_teacher_count = {
+				text: `SELECT * FROM matt_ass ma
+					   INNER JOIN matters m ON ma.id_matt = m.id_matter
+					   INNER JOIN classes c ON m.class = c.code_class
 					   WHERE c.teacher = $1 ${filter.class}`,
 				values: [req.user.user_id]
 			}
+			
 			let resultByStudent = {}
+			let byStudentCount = {}
 			let resultByTeacher = {}
+			let byTeacherCount = {}
 			
 			switch(by){
 				case "student":
 				
 					resultByStudent = await querySync(sql_by_student)
+					byStudentCount = await querySync(sql_student_count)
+				console.log(req.user.user_id)
 					return res.json({
 						data: resultByStudent.rows,
-						rowCount: resultByStudent.rowCount 
+						rowCount: byStudentCount.rowCount 
 					})
 				
 				case "teacher":
+				
 					resultByTeacher = await querySync(sql_by_teacher)
+					byTeacherCount = await querySync(sql_teacher_count)
 					return res.json({
 						data: resultByTeacher.rows,
-						rowCount: resultByTeacher.rowCount 
+						rowCount: byTeacherCount.rowCount 
 					})
 				default:
 					resultByStudent = await querySync(sql_by_student)
+					byStudentCount = await querySync(sql_student_count)
 					resultByTeacher = await querySync(sql_by_teacher)
+					byTeacherCount = await querySync(sql_teacher_count)
 					
 					return res.json({
 						data: {
 							received_assignments: {
 								data: resultByStudent.rows,
-								count: resultByStudent.rowCount
+								count: byStudentCount.rowCount
 							},
 							created_assignments: {
 								data: resultByTeacher.rows,
-								count: resultByTeacher.rowCount
+								count: byTeacherCount.rowCount
 							}
 						}
 					})
@@ -193,7 +219,7 @@ module.exports = {
 			if(!policy.can('readsingle', subjectMattAss)){
 				
 				let sql_get_student = {
-					text: 'SELECT "user" FROM students WHERE class = $1 AND "user" = $2' ,
+					text: 'SELECT "user" FROM class_students WHERE class = $1 AND "user" = $2' ,
 					values: [mattAssData[0]?.class, req.user?.user_id]
 				}
 				const { rows: studentData } = await querySync(sql_get_student);
@@ -243,7 +269,7 @@ module.exports = {
 		}
 		
 		const errInsert = validationResult(req);
-		let { duration, text, id_matt, title } = req.body;
+		let { duration = 0, text, id_matt, title } = req.body;
 		let attachment = []
 		if(req.file){
 			attachment[0] = req.file.filename
@@ -274,7 +300,7 @@ module.exports = {
 			})
 		}catch(err){
 			removeFiles([req.file]);
-			console.log()
+			console.log(err)
 			next(err)
 		}
 	},

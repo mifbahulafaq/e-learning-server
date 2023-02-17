@@ -22,12 +22,12 @@ module.exports = {
 			if(result.rowCount){
 				if(bcrypt.compareSync(password,result.rows[0].password)){
 					
-					let {token, password, ...remains } = result.rows[0]
-					token = jwt.sign(remains, config.secretKey);
+					let {user_id, ...remains } = result.rows[0]
+					token = jwt.sign({user_id}, config.secretKey);
 					
 					const update ={
 						text:"UPDATE users SET token = token || ARRAY[$1] WHERE user_id = $2",
-						values:[token, remains.user_id]
+						values:[token, user_id]
 					}
 					await querySync(update);
 					
@@ -51,7 +51,7 @@ module.exports = {
 			})
 			res.json({
 				message:'Logged in successfully',
-				data: {token}
+				token
 			})
 		})(req,res,next)
 	},
@@ -120,8 +120,6 @@ module.exports = {
 			error:1,
 			message: "You'are not login or token expired"
 		})
-		res.json({
-			data: req.user
-		})
+		res.json(req.user)
 	}
 }

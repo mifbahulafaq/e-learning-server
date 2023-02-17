@@ -10,19 +10,34 @@ module.exports = {
 		try{
 			
 			const policy = policyFor(req.user);
-			let query = {
+			//teacher sql
+			let teacherSql = {
 				text: 'SELECT teacher FROM classes WHERE code_class = $1',
 				values: [req.params.code_class]
 			}
+			//student sql
+			let studentSql = {
+				text: 'SELECT * FROM class_students WHERE class = $1 AND "user" = $2',
+				values: [req.params.code_class, req.user?.user_id]
+			}
 			
-			let result = await querySync(query);
-			const subjectClassDiscuss = subject('Class_discussion', {user_id: result.rows[0]?.teacher})
+			let teacherResult = await querySync(teacherSql);
+			let subjectClassDiscuss = subject('Class_discussion', {user_id: teacherResult.rows[0]?.teacher})
 			
+			//teacher authorization
 			if(!policy.can('read', subjectClassDiscuss)){
-				return res.json({
-					error: 1,
-					message: "You're not allowed to perform this action"
-				})
+				
+				let studentResult = await querySync(studentSql);
+				console.log(studentResult.rows)
+				subjectClassDiscuss = subject('Class_discussion', {user_id: studentResult.rows[0]?.user})
+				
+				//student authorization
+				if(!policy.can('read', subjectClassDiscuss)){
+					return res.json({
+						error: 1,
+						message: "You're not allowed to perform this action"
+					})
+				}
 			}
 			
 			query = {

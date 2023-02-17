@@ -19,7 +19,7 @@ module.exports = {
 			}
 			
 			query = {
-				text: 'SELECT cs.id_student, c.*, u.user_id uId, u.name uName, u.email uEmail, u.gender uGender, u.photo uPhoto, t.user_id tId, t.name tName, t.email tEmail, t.gender tGender, t.photo tPhoto FROM class_students cs INNER JOIN classes c ON class = code_class INNER JOIN users u ON cs.user = u.user_id INNER JOIN users t ON c.teacher = t.user_id WHERE "user" = $1',
+				text: 'SELECT cs.id_class_student, c.*, u.user_id uId, u.name uName, u.email uEmail, u.gender uGender, u.photo uPhoto, t.user_id tId, t.name tName, t.email tEmail, t.gender tGender, t.photo tPhoto FROM class_students cs INNER JOIN classes c ON class = code_class INNER JOIN users u ON cs.user = u.user_id INNER JOIN users t ON c.teacher = t.user_id WHERE "user" = $1',
 				values: [req.user?.user_id]
 			}
 			
