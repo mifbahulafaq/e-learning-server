@@ -13,22 +13,40 @@ module.exports = {
 		
 		const id_matt_ass = parseInt(req.params.id_matt_ass)
 		const policy = policyFor(req.user);
-		console.log(req.query)
+		
 		try{
 			
 			let sql = {
 				text: 'SELECT c.teacher FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter INNER JOIN classes c ON m.class = c.code_class WHERE ma.id_matt_ass=$1',
 				values: [id_matt_ass || undefined]
 			}
-			const { rows: classData } = await querySync(sql);
+			const { rows: teacherAss } = await querySync(sql);
 			
-			const subjectAssAns = subject('Assignment_answer',{user_id: classData[0]?.teacher})
+			let subjectAssAns = subject('Assignment_answer',{user_id: teacherAss[0]?.teacher})
 			
 			if(!policy.can('read', subjectAssAns)){//teacher auth
 			
 				sql = {
+					text: `SELECT *
+						FROM matt_ass ma
+						INNER JOIN matters m ON ma.id_matt=m.id_matter
+						WHERE ma.id_matt_ass = $1 AND m.class IN (SELECT class FROM class_students WHERE "user" = $2)`,
+					values: [id_matt_ass || undefined, req.user.user_id]
+				}
+				const { rows: userAss } = await querySync(sql)
+				
+				subjectAssAns = subject('Assignment_answer',{user_id: userAss.length? req.user.user_id: undefined})
+				
+				if(!policy.can('read', subjectAssAns)){//student auth
+					return res.json({
+						error: 1,
+						message: "You're not allowed to perform this action"
+					})
+				}
+				
+				sql = {
 					text: `SELECT 
-						aa.*, jsonb_build_object('name',u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user", jsonb_build_object('id_matt_ass',ma.id_matt_ass, 'duration', ma.duration, 'text', ma.text, 'date', ma.date, 'attachment', ma.attachment, 'matter', m.*, 'title', ma.title, 'total_answers', ma.total_answers) assignmentmatter FROM ass_answers aa 
+						aa.*, jsonb_build_object('name',u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user", jsonb_build_object('id_matt_ass',ma.id_matt_ass, 'duration', ma.duration, 'text', ma.text, 'date', ma.date, 'attachment', ma.attachment, 'matter', m.*, 'title', ma.title) assignmentmatter FROM ass_answers aa 
 						INNER JOIN "users" u ON aa.user_id=u.user_id
 						INNER JOIN matt_ass ma ON aa.id_matt_ass=ma.id_matt_ass
 						INNER JOIN matters m ON ma.id_matt=m.id_matter
@@ -37,19 +55,12 @@ module.exports = {
 				}
 				const { rows: userData} = await querySync(sql);
 				
-				if(userData.length){//user auth
-					return res.json({data: userData})
-				}
-				
-				return res.json({
-					error: 1,
-					message: "You're not allowed to perform this action"
-				})
+				return res.json({data: userData})
 			}
 			
 			sql = {
 				text: `SELECT 
-						aa.*, jsonb_build_object('name',u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user", jsonb_build_object('id_matt_ass',ma.id_matt_ass, 'duration', ma.duration, 'text', ma.text, 'date', ma.date, 'attachment', ma.attachment, 'matter', m.*, 'title', ma.title, 'total_answers', ma.total_answers) assignmentmatter FROM ass_answers aa 
+						aa.*, jsonb_build_object('name',u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user", jsonb_build_object('id_matt_ass',ma.id_matt_ass, 'duration', ma.duration, 'text', ma.text, 'date', ma.date, 'attachment', ma.attachment, 'matter', m.*, 'title', ma.title) assignmentmatter FROM ass_answers aa 
 						INNER JOIN "users" u ON aa.user_id=u.user_id
 						INNER JOIN matt_ass ma ON aa.id_matt_ass=ma.id_matt_ass
 						INNER JOIN matters m ON ma.id_matt=m.id_matter
@@ -153,16 +164,16 @@ module.exports = {
 			
 			//checking the user's answers
 			let sql = {
-				text: 'SELECT * FROM ass_answers WHERE user_id=$1',
-				values: [req.user?.user_id]
+				text: 'SELECT * FROM ass_answers WHERE user_id=$1 AND id_matt_ass = $2',
+				values: [req.user?.user_id, id_matt_ass]
 			}
 			const getUser = await querySync(sql)
 			
 			if(getUser.rowCount){//update
 				
 				sql = {
-					text: 'UPDATE ass_answers SET content = content || $1 WHERE user_id=$2 RETURNING *',
-					values: [ content, req.user?.user_id ]
+					text: 'UPDATE ass_answers SET content = content || $1 WHERE user_id=$2 AND id_matt_ass = $2 RETURNING *',
+					values: [ content, req.user?.user_id, id_matt_ass ]
 				}
 				const updateData = await querySync(sql);
 				return res.json({
@@ -174,15 +185,9 @@ module.exports = {
 				text: 'INSERT INTO ass_answers(content, id_matt_ass, user_id) VALUES($1, $2, $3) RETURNING *',
 				values: [ content, id_matt_ass, req.user?.user_id ]
 			}
-			const sql2 = {
-				text: 'UPDATE matt_ass SET total_answers = total_answers + 1 WHERE id_matt_ass = $1',
-				values: [ id_matt_ass ]
-			}
+			
 			//insert
 			const insertData = await querySync(sql);
-			
-			//update total answers
-			await querySync(sql2)
 			
 			res.json({
 				data: insertData.rows

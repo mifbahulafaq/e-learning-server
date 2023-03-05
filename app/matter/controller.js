@@ -61,7 +61,11 @@ module.exports = {
 			}
 			
 			const query = {
-				text: `SELECT m.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo FROM matters m INNER JOIN classes c ON m.class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE m.class = $1 ${filterDateString} ${parseInt(latest)?'ORDER BY id_matter DESC':''}`,
+				text: `SELECT m.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo, (SELECT count(*) FROM matter_discussions md WHERE md.matt = m.id_matter) total_comments
+				FROM matters m 
+				INNER JOIN classes c ON m.class=c.code_class 
+				INNER JOIN users t ON c.teacher = t.user_id 
+				WHERE m.class = $1 ${filterDateString} ${parseInt(latest)?'ORDER BY id_matter DESC':''}`,
 				values: [code_class || undefined, ...filterDateArray]
 			}
 			
@@ -87,7 +91,7 @@ module.exports = {
 			const { rows: matterData } = await querySync(query);
 			//authorize
 			let sqlGetStudent = {
-				text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+				text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
 				values: [matterData[0]?.class, req.user?.user_id]
 			}
 			const { rows: studentData} = await querySync(sqlGetStudent);
@@ -132,7 +136,7 @@ module.exports = {
 			if(!policy.can('readsingle',subjectMatter)){
 				
 				let sqlGetStudent = {
-					text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+					text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
 					values: [matterData[0]?.class, req.user?.user_id]
 				}
 				const { rows: studentData} = await querySync(sqlGetStudent);

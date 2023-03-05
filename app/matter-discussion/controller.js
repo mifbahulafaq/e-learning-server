@@ -29,7 +29,7 @@ module.exports = {
 				result = await querySync(sql_get_class);
 				
 				let sql_get_student = {
-					text: 'SELECT "user" FROM students WHERE class = $1 AND "user" = $2' ,
+					text: 'SELECT "user" FROM class_students WHERE class = $1 AND "user" = $2' ,
 					values: [result.rows[0]?.class, req.user?.user_id]
 				}
 				result = await querySync(sql_get_student);
@@ -122,13 +122,8 @@ module.exports = {
 			text: 'INSERT INTO matter_discussions(date, text, matt, "user") VALUES($1, $2, $3, $4) RETURNING *',
 			values: [date, text, matt, req.user?.user_id]
 		}
-		const update_total_comms = {
-			text: 'UPDATE matters SET total_comments = total_comments + 1 WHERE id_matter = $1',
-			values: [matt]
-		}
 		try{
 			const result = await querySync(query);
-			const updateTotalComment = await querySync(update_total_comms);
 			
 			res.json({
 				data: result.rows

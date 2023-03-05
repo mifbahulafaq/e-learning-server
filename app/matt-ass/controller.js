@@ -31,13 +31,13 @@ module.exports = {
 		//filter statuts
 		switch(status){
 			case "none":
-				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ( now() < ma.date + concat(ma.duration, ' S')::interval OR ma.duration = 0 )"
+				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ( now() <= ma.date + concat(ma.duration / 1000, ' S')::interval OR ma.duration = 0 )"
 				break;
 			case "done":
 				filter.status = "AND ma.id_matt_ass IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1)"
 				break;
 			case "expired":
-				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ma.duration != 0 AND now() >= ma.date + concat(ma.duration, ' S')::interval"
+				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ma.duration != 0 AND now() > ma.date + concat(ma.duration / 1000, ' S')::interval"
 			break;
 		}
 		
@@ -131,7 +131,32 @@ module.exports = {
 	async getByMatter(req, res, next){
 		
 		const id_matt = parseInt(req.params.id_matt);
-		const { no_answer } = req.query
+		const { no_answer } = req.query //no answers or must be done
+		const sqlFunc = function(teacherRole, noAnswer){
+			
+			if(parseInt(no_answer)){
+				
+				const additionalSql = {
+					text: !teacherRole? "WHERE user_id = $2": "",
+					values: !teacherRole? [id_matt, req.user?.user_id]: [id_matt]
+				}
+				return {
+					text: `SELECT * FROM matt_ass 
+						   WHERE id_matt = $1 AND id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers ${additionalSql.text}) AND ( now() <= date + concat(duration / 1000, ' S')::interval OR duration = 0)`,
+					values: additionalSql.values
+				}
+			}else{
+				
+				const additionalSql = {
+					text: !teacherRole? "AND user_id = $2": "",
+					values: !teacherRole? [id_matt, req.user?.user_id]: [id_matt]
+				}
+				return {
+					text: `SELECT ma.*, (SELECT count(*) FROM ass_answers WHERE id_matt_ass = ma.id_matt_ass ${additionalSql.text}) total_answers FROM matt_ass ma WHERE id_matt = $1`,
+					values: additionalSql.values
+				}
+			}
+		}
 		
 		try{
 			//get the main data and authorize
@@ -153,7 +178,7 @@ module.exports = {
 			if(!policy.can('read',subjectMattAss)){
 				
 				let sqlGetStudent = {
-					text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+					text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
 					values: [singleMatter.rows[0]?.class, req.user?.user_id]
 				}
 				const { rows: studentData} = await querySync(sqlGetStudent);
@@ -165,33 +190,20 @@ module.exports = {
 						message: "You're not allowed to read this data"
 					})
 				}
+				
+				const { rows: mattAssData } = await querySync(sqlFunc(false, parseInt(no_answer)))
+				return res.json({
+					data: mattAssData
+				})
 			}
 			
-			if(parseInt(no_answer)){
-				
-				//filter by query strings
-				sql = {
-					text: `SELECT ma.* FROM matt_ass ma
-						   INNER JOIN ass_answers aa ON ma.id_matt_ass != aa.id_matt_ass
-						   WHERE ma.id_matt = $1 AND aa.user_id = $2`,
-					values: [id_matt, req.user.user_id]
-				}
-			}else{
-				
-				sql = {
-					text: 'SELECT * FROM matt_ass WHERE id_matt = $1',
-					values: [id_matt]
-				}
-			}
-			
-			const { rows: mattAssData } = await querySync(sql)
-			
+			const { rows: mattAssData } = await querySync(sqlFunc(true, parseInt(no_answer)))
 			return res.json({
 				data: mattAssData
 			})
 			
 		}catch(err){
-			console.log(err)
+			
 			next(err);
 		}
 		

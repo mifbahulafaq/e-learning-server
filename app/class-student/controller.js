@@ -37,28 +37,49 @@ module.exports = {
 		try{
 			
 			const policy = policyFor(req.user);
-			let query = {
+			const code_class = parseInt(req.params.code_class) || undefined
+			
+			let teacherSql = {
 				text: 'SELECT teacher FROM classes WHERE code_class = $1',
-				values: [req.params.code_class]
+				values: [code_class]
+			}
+			let studentSql = {
+				text: 'SELECT * FROM class_students WHERE class = $1 AND "user" = $2',
+				values: [code_class, req.user?.user_id]
 			}
 			
-			let result = await querySync(query);
-			const subjectStudent = subject('Class_student', {user_id: result.rows[0]?.teacher})
+			let teacherResult = await querySync(teacherSql);
+			let subjectStudent = subject('Class_student', {user_id: teacherResult.rows[0]?.teacher})
 			
+			//teacher authorization
 			if(!policy.can('read', subjectStudent)){
-				return res.json({
-					error: 1,
-					message: "You're not allowed to perform this action"
-				})
+				
+				let studentResult = await querySync(studentSql);
+				subjectStudent = subject('Class_student', {user_id: studentResult.rows[0]?.user})
+				
+				if(!policy.can('read', subjectStudent)){
+					return res.json({
+						error: 1,
+						message: "You're not allowed to perform this action"
+					})
+				}
+				
+				let sqlResult = {
+					text: 'SELECT class_students.*, classes.*, users.name , email, gender, photo  FROM class_students INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1 AND "user" != $2',
+					values: [code_class, req.user?.user_id]
+				}
+				
+				let result = await querySync(sqlResult);
+				return res.json({data: result.rows})
 			}
 			
-			query = {
+			let sqlResult2 = {
 				text: 'SELECT class_students.*, classes.*, users.name , email, gender, photo  FROM class_students INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1',
-				values: [req.params.code_class]
+				values: [code_class]
 			}
 			
-			result = await querySync(query);
-			res.json({data: result.rows})
+			let result2 = await querySync(sqlResult2);
+			res.json({data: result2.rows})
 			
 		}catch(err){
 			next(err);

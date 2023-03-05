@@ -57,7 +57,7 @@ async function isMine(id_matt, {req}){
 			const getClass = await querySync(sql_get_class);
 			
 			let sql_get_student = {
-				text: 'SELECT * FROM students WHERE class = $1 AND "user" = $2',
+				text: 'SELECT * FROM class_students WHERE class = $1 AND "user" = $2',
 				values: [getClass.rows[0]?.class, req.user?.user_id]
 			}
 			const getStudent = await querySync(sql_get_student);

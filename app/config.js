@@ -14,7 +14,7 @@ module.exports = {
 	uploadDoct: {
 		dest: path.resolve(__dirname, '../public/document'),
 		ext: ['.pdf','.docx','.doc'],
-		size: 10000000 //300kb
+		size: 10000000 //10MB
 	},
 	
 	dbHost : process.env.DB_HOST,
