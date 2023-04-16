@@ -4,6 +4,7 @@ module.exports = function(user){
 	const builder = new AbilityBuilder();
 	if(user){
 		builder.can('readsingle','User', {user_id: user.user_id})
+		builder.can('update','User', {user_id: user.user_id})
 		
 		builder.can('create','Class')
 		builder.can('update','Class',{user_id: user.user_id})
@@ -15,8 +16,9 @@ module.exports = function(user){
 		builder.can('read','Schedule',{user_id: user.user_id})
 		
 		builder.can('create','Class_student')
-		builder.can('read','Class_student',{user_id: user.user_id}) //by code_class
+		builder.can('read','Class_student', {user_id: user.user_id}) //by code_class
 		builder.can('readAll','Class_student')
+		builder.can('delete','Class_student', {user_id: user.user_id})
 		
 		builder.can('read','Class_discussion',{user_id: user.user_id})
 		builder.can('create','Class_discussion')

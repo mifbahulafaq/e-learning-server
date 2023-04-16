@@ -9,12 +9,12 @@ module.exports = {
 	uploadPhoto: {
 		dest: path.resolve(__dirname, '../public/photo'),
 		ext: ['.jpg','.png','.jpeg'],
-		size: 300000 //300kb
+		size: 500000 //500kb
 	},
 	uploadDoct: {
 		dest: path.resolve(__dirname, '../public/document'),
 		ext: ['.pdf','.docx','.doc'],
-		size: 10000000 //10MB
+		size: 3000000 //3MB
 	},
 	
 	dbHost : process.env.DB_HOST,

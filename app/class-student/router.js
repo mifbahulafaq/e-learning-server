@@ -24,13 +24,16 @@ const {
 	getStudents,
 	addStudent,
 	getByClass,
-	joinClass
+	joinClass,
+	unenrol
 } = require('./controller');
 
 router.get('/class-students/by-class/:code_class', getByClass);
 router.get('/class-students', getStudents);
 router.post('/class-students/join-class', multer().none(), joinValid, joinClass);
 router.post('/class-students/add', multer().none(), addValid, addStudent);
+router.post('/class-students/add', multer().none(), addValid, addStudent);
+router.delete('/class-students/:id_class_student', unenrol);
 
 module.exports = router;
 

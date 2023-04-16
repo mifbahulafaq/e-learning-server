@@ -15,12 +15,10 @@ const arrMsg = "Must be Array"
 const addValid = [
 	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
 	body('schedule').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
-	body('text').if(body('text').exists()).customSanitizer(noWhitespace),
 	body('code_class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine)
 ]
 const editValid = [
 	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
-	body('text').if(body('text').exists()).customSanitizer(noWhitespace),
 	body('schedule').if(body('schedule').exists()).custom(isDate),
 	body('code_class').if(body('code_class').exists()).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine)
 ]

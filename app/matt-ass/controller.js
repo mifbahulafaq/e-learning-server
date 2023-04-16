@@ -211,8 +211,12 @@ module.exports = {
 	async singleMattAss(req, res, next){
 	
 		try{
-			const id_matt_ass = parseInt(req.params.id_matt_ass);
+			const id_matt_ass = parseInt(req.params.id_matt_ass) || undefined;
 			let policy = policyFor(req.user);
+			let additionalSql = {
+				text: "",
+				values: [id_matt_ass]
+			}
 			
 			sql ={
 				text: 'SELECT class FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE ma.id_matt_ass = $1',
@@ -244,15 +248,20 @@ module.exports = {
 						message: 'You have no access to read this data'
 					})
 				}
+				
+				additionalSql.text = "AND user_id = $2" 
+				additionalSql.values = [id_matt_ass, req.user?.user_id]
 			}
 			
 			let singleReadSql = {
-				text: `SELECT ma.*, json_build_object('user_id', u.user_id, 'email', u.email, 'gender', u.gender, 'name', u.name, 'photo', u.photo) teacher FROM matt_ass ma 
+				text: `SELECT ma.*, json_build_object('user_id', u.user_id, 'email', u.email, 'gender', u.gender, 'name', u.name, 'photo', u.photo) teacher,
+				(SELECT count(*) FROM ass_answers WHERE id_matt_ass = $1 ${additionalSql.text}) total_answers
+				FROM matt_ass ma 
 					   INNER JOIN matters m ON ma.id_matt = m.id_matter
 					   INNER JOIN classes c ON m.class = c.code_class
 					   INNER JOIN users u ON c.teacher = u.user_id 
 					   WHERE id_matt_ass = $1`,
-				values: [id_matt_ass]
+				values: additionalSql.values
 			}
 			let { rows: singleData } = await querySync(singleReadSql);
 			

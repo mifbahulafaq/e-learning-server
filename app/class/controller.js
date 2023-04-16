@@ -1,8 +1,11 @@
 const { querySync } = require('../../database');
 const { validationResult } = require('express-validator');
 const moment = require('moment');
+const path = require('path')
+const config = require('../config')
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
+const removeFiles = require('../utils/removeFiles')
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -92,34 +95,51 @@ module.exports = {
 	/*-----------------delete-------------------------*/
 	async deleteClass(req, res, next){
 		
-		const get = {
-			text: 'SELECT user_id FROM classes WHERE code_class = $1',
-			values: [req.params.code_class]
+		const codeClass = parseInt(req.params.code_class) || undefined
+		const sqlGetClass = {
+			text: 'SELECT teacher FROM classes WHERE code_class = $1',
+			values: [codeClass]
 		}
 		
 		try{
 			
-			let result = await querySync(get);
+			let result = await querySync(sqlGetClass);
 			
 			const policy = policyFor(req.user);
-			const subjectClass = subject('Class', {user_id: result.rows[0]?.user_id});
+			const subjectClass = subject('Class', {user_id: result.rows[0]?.teacher});
 			
 			if(!policy.can('delete', subjectClass)){
 				return res.json({
 					error: 1,
-					message: "You can't delete this data"
+					message: 'You cannot delete this class'
 				})
 			}
+			const getFilesSql = {
+				text: `SELECT unnest(string_to_array(attachment[1], '')) FROM exams WHERE code_class = $1
+					   UNION
+					   SELECT unnest(content[1:][1]) FROM exam_answers ea INNER JOIN exams e ON ea.id_exm = e.id_exm WHERE e.code_class = $1
+					   UNION
+					   SELECT unnest(attachment[1:][1]) FROM matters WHERE class = $1
+					   UNION
+					   SELECT unnest(string_to_array(ma.attachment[1], '')) FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE m.class = $1
+					   UNION
+					   SELECT unnest(aa.content[1:][1]) FROM ass_answers aa INNER JOIN matt_ass ma ON aa.id_matt_ass = ma.id_matt_ass INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE m.class = $1`,
+				values: [codeClass]
+			}
+			
+			let { rows: filesOfClass } = await querySync(getFilesSql)
+			filesOfClass = filesOfClass.map(e=>({path: path.join(config.rootPath, `public/document/${e.unnest}`)}))
 			
 			const remove = {
 				text: 'DELETE FROM classes WHERE code_class = $1 RETURNING *',
-				values: [req.params.code_class]
+				values: [codeClass]
 			}
-			
 			result = await querySync(remove);
+			removeFiles(filesOfClass) //removing documents of class
+			
 			return res.json({
 				message: 'Data is successfully deleted',
-				data: result.rows
+				data: result.rows[0]
 			})
 			
 		}catch(err){

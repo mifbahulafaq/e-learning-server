@@ -11,10 +11,11 @@ const { querySync } = require('../../database');
 
 const noEmptyMsg = 'This field must be filled';
 const lengthMsg = 'Must be greater than 255 or less than 5 characters long';
+const emailMsg = "Invalid Email"
 const authValidator = [
 	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
 	body('gender').notEmpty().bail().withMessage(noEmptyMsg).isIn(['Male','Female']),
-	body('email').notEmpty().bail().withMessage(noEmptyMsg).isEmail().custom(emailUnique),
+	body('email').notEmpty().bail().withMessage(noEmptyMsg).isEmail().withMessage(emailMsg).custom(emailUnique),
 	body('password')
 	.notEmpty().bail().withMessage(noEmptyMsg)
 	.isLength({min:3, max:255}).withMessage(lengthMsg)

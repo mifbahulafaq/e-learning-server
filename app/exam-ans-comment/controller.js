@@ -123,13 +123,9 @@ module.exports = {
 			text: 'INSERT INTO exam_answer_comments (text, id_exm_ans, user_id) VALUES($1, $2, $3) RETURNING *',
 			values: [text, id_exm_ans, req.user?.user_id]
 		}
-		const update_total_comms = {
-			text: 'UPDATE exam_answers SET total_comments = total_comments + 1 WHERE id_exm_ans = $1',
-			values: [id_exm_ans]
-		}
+		
 		try{
 			const result = await querySync(insertSql);
-			const updateTotalComment = await querySync(update_total_comms);
 			
 			res.json({
 				data: result.rows

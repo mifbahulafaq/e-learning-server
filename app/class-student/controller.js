@@ -200,4 +200,60 @@ module.exports = {
 		}
 	},
 	
+	
+	/*-----------------join class-------------------------*/
+	async unenrol(req, res, next){
+		
+		const id_class_student = parseInt(req.params.id_class_student) || undefined
+		let policy = policyFor(req.user);
+		
+		try{
+			
+			const teacherSql = {
+				text: `SELECT c.teacher FROM class_students cs
+					   INNER JOIN classes c ON cs.class = c.code_class WHERE id_class_student = $1`,
+				values: [id_class_student]
+			}
+			const { rows: teacherData} = await querySync(teacherSql)
+			let subjectStudent = subject('Class_student', { user_id: teacherData[0]?.teacher})
+			
+			//teacher authorization
+			if(!policy.can('delete', subjectStudent)){
+				
+				//student authorization
+				const studentSql = {
+				text: `SELECT u.user_id FROM class_students cs
+					   INNER JOIN users u ON cs.user = u.user_id WHERE id_class_student = $1`,
+				values: [id_class_student]
+				}
+				
+				const { rows: studentData} = await querySync(studentSql)
+				subjectStudent = subject('Class_student', { user_id: studentData[0]?.user_id})
+				
+				if(!policy.can('delete', subjectStudent)){
+					
+					return res.json({
+						error: 1,
+						message: "You aren't allowed to perform this action"
+					})
+				}
+				
+			}
+			
+			const unenrolSql = {
+				text: 'DELETE FROM class_students WHERE id_class_student = $1',
+				values: [id_class_student]
+			}
+			
+			const unenrolResult = await querySync(unenrolSql);
+			
+			res.json({
+				message: "Unenrolling successfully"
+			})
+			
+		}catch(err){
+			next(err)
+		}
+	},
+	
 }

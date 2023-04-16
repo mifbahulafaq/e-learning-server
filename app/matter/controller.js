@@ -80,7 +80,7 @@ module.exports = {
 	
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
-		console.log(path.join('coba','haha'))
+		
 		const id_matt = parseInt(req.params.id_matt);
 		try{
 			//get the main data and authorize
@@ -273,7 +273,7 @@ module.exports = {
 			let resultUpdate = await querySync(updateSql);
 			
 			if(resultUpdate.rowCount && removedAttachments){
-				let removedFiles = removedAttachments.map(e=>({path: path.join(config.rootPath,`public/document/${e}`)}));
+				let removedFiles = removedAttachments.map(e=>({path: path.join(config.rootPath,`public/document/${e[0]}`)}));
 				removeFiles(removedFiles)
 			}
 			
@@ -315,7 +315,7 @@ module.exports = {
 			let resultDelete = await querySync(deleteSql);
 			
 			if(resultDelete.rowCount) {
-				let removedFiles = resultDelete.rows[0]?.attachment.map(e=>({path: path.join(config.rootPath,`public/document/${e}`)}));
+				let removedFiles = resultDelete.rows[0]?.attachment.map(e=>({path: path.join(config.rootPath,`public/document/${e[0]}`)}));
 				removeFiles(removedFiles);
 			}
 			

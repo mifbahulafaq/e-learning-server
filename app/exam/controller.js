@@ -13,15 +13,26 @@ module.exports = {
 	/*-----------------get-------------------------*/
 	async getByClass(req, res, next){
 		
-		const code_class = parseInt(req.params.code_class);
+		const code_class = parseInt(req.params.code_class) || undefined ;
 		const { latest } = req.query; 
 		const policy = policyFor(req.user);
+		const sqlFunc = function(teacherRole){
+			
+			const additionalSql = {
+					text: !teacherRole? "AND user_id = $2": "",
+					values: !teacherRole? [code_class, req.user?.user_id]: [code_class]
+			}
+			return {
+				text: `SELECT e.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo, (SELECT count(*) FROM exam_answers WHERE id_exm = e.id_exm ${additionalSql.text}) total_answers FROM exams e INNER JOIN classes c ON e.code_class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE e.code_class = $1 ${ parseInt(latest)?'ORDER BY id_exm DESC LIMIT 1':''}`,
+				values: additionalSql.values
+			}
+		}
 		
 		try{
 			
 			let sqlGetClass = {
 				text: 'SELECT teacher FROM classes WHERE code_class=$1',
-				values: [code_class || undefined]
+				values: [code_class]
 			}
 			const { rows: classData } = await querySync(sqlGetClass);
 			const subjectExam = subject('Exam',{user_id: classData[0]?.teacher})
@@ -30,7 +41,7 @@ module.exports = {
 				
 				let sqlGetStudent = {
 					text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
-					values: [code_class || undefined, req.user?.user_id]
+					values: [code_class, req.user?.user_id]
 				}
 				
 				const { rows: studentData } = await querySync(sqlGetStudent);
@@ -43,18 +54,16 @@ module.exports = {
 					})
 					
 				}
+				
+				const { rows: examData } = await querySync(sqlFunc(false));
+				return res.json({data: examData})
+				
 			}
 			
-			const query = {
-				text: `SELECT e.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo FROM exams e INNER JOIN classes c ON e.code_class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE e.code_class = $1 ${ parseInt(latest)?'ORDER BY id_exm DESC LIMIT 1':''}`,
-				values: [code_class || undefined]
-			}
-			
-			const { rows: examData } = await querySync(query);
+			const { rows: examData } = await querySync(sqlFunc(true));
 			res.json({data: examData})
 			
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 	},
@@ -73,7 +82,7 @@ module.exports = {
 			
 			//authorize
 			let sqlGetStudent = {
-				text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+				text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
 				values: [examData[0]?.code_class, req.user?.user_id]
 			}
 			const { rows: studentData} = await querySync(sqlGetStudent);
@@ -114,7 +123,7 @@ module.exports = {
 		}
 		
 		const errInsert = validationResult(req);
-		let { schedule, text, duration, code_class } = req.body;
+		let { schedule, text, duration = 0, code_class } = req.body;
 		let attachment = []
 		if(req.file){
 			attachment[0] = req.file.filename
@@ -155,10 +164,10 @@ module.exports = {
 	async edit(req, res, next){
 		
 		try{
-			const id_exm = parseInt(req.params.id_exm);
+			const id_exm = parseInt(req.params.id_exm) || undefined;
 			let sql ={
 				text: 'SELECT c.teacher FROM exams m INNER JOIN classes c ON m.code_class = c.code_class  WHERE id_exm=$1',
-				values: [id_exm || undefined]
+				values: [id_exm]
 			} 
 			
 			const { rows } = await querySync(sql);
@@ -192,7 +201,7 @@ module.exports = {
 				values: [ id_exm ]
 			}
 			let { rows : getSingle } = await querySync(getSql);
-			let removedAttachment = getSingle[0].attachment || undefined;
+			let removedAttachment = getSingle[0]?.attachment[0] || undefined;
 			
 			//updating the data
 			const columns = ['schedule',  'name',  'duration', 'description', 'attachment', 'code_class'];
@@ -218,10 +227,10 @@ module.exports = {
 	async remove(req, res, next){
 		
 		try{
-			const id_exm = parseInt(req.params.id_exm);
+			const id_exm = parseInt(req.params.id_exm)|| undefined;
 			let sql ={
 				text: 'SELECT c.teacher FROM exams e INNER JOIN classes c ON e.code_class = c.code_class  WHERE id_exm=$1',
-				values: [id_exm || undefined]
+				values: [id_exm ]
 			} 
 			
 			const {rows} = await querySync(sql);
@@ -238,12 +247,12 @@ module.exports = {
 			
 			let deleteSql = {
 				text: 'DELETE FROM Exams WHERE id_exm=$1 RETURNING *',
-				values: [id_exm || undefined]
+				values: [id_exm ]
 			}
 			let resultDelete = await querySync(deleteSql);
 			
 			if(resultDelete.rowCount) {
-				let removedFiles = [{path: path.join(config.rootPath,`public/document/${resultDelete.rows[0]?.attachment}`)}];
+				let removedFiles = [{path: path.join(config.rootPath,`public/document/${resultDelete.rows[0]?.attachment[0]}`)}];
 				removeFiles(removedFiles);
 			}
 			

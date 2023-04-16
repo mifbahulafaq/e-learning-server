@@ -1,4 +1,3 @@
-const fs = require('fs');
 const { querySync } = require('../../database');
 
 module.exports = async function(req, table, columns){
@@ -25,7 +24,7 @@ module.exports = async function(req, table, columns){
 	
 	const sql = {
 		text: `UPDATE ${table} SET ${sqlText} WHERE ${where}=$${sqlValues.length+1} RETURNING *`,
-		values: [...sqlValues, req.params[where]]
+		values: [...sqlValues,  parseInt(req.params[where]) || undefined]
 	}
 	return await querySync(sql)
 }

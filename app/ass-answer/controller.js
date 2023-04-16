@@ -172,8 +172,8 @@ module.exports = {
 			if(getUser.rowCount){//update
 				
 				sql = {
-					text: 'UPDATE ass_answers SET content = content || $1 WHERE user_id=$2 AND id_matt_ass = $2 RETURNING *',
-					values: [ content, req.user?.user_id, id_matt_ass ]
+					text: 'UPDATE ass_answers SET content = content || $1 WHERE id_ass_answer = $2 RETURNING *',
+					values: [ content, getUser.rows[0].id_ass_answer ]
 				}
 				const updateData = await querySync(sql);
 				return res.json({
@@ -229,7 +229,7 @@ module.exports = {
 			let resultDelete = await querySync(deleteSql);
 			
 			if(resultDelete.rowCount) {
-				let removedFiles = [{path: path.join(config.rootPath,`public/document/${resultDelete.rows[0]?.attachment}`)}];
+				let removedFiles = [{path: path.join(config.rootPath,`public/document/${resultDelete.rows[0]?.attachment[0]}`)}];
 				removeFiles(removedFiles);
 			}
 			

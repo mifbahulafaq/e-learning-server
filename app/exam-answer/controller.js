@@ -11,14 +11,14 @@ module.exports = {
 	/*-----------------get-------------------------*/
 	async getByExam(req, res, next){
 		
-		const idExm = parseInt(req.params.id_exm)
+		const idExm = parseInt(req.params.id_exm) || undefined
 		const policy = policyFor(req.user);
 		
 		try{
 			
 			let sql = {
 				text: 'SELECT * FROM exams e INNER JOIN classes c ON e.code_class = c.code_class WHERE id_exm=$1',
-				values: [idExm || undefined]
+				values: [idExm]
 			}
 			const { rows: classData } = await querySync(sql);
 			
@@ -33,7 +33,7 @@ module.exports = {
 				const { rows: examData } = await querySync(sql);
 				
 				sql = {
-					text: 'SELECT * FROM students WHERE class=$1 AND "user"=$2',
+					text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
 					values: [ examData[0]?.code_class, req.user.user_id]
 				}
 				const { rows: studentData } = await querySync(sql);
@@ -47,7 +47,7 @@ module.exports = {
 				}
 				
 				sql = {
-					text: 'SELECT ea.*, to_jsonb(e.*) exam, to_jsonb(c.*) class FROM exam_answers ea INNER JOIN exams e ON ea.id_exm=e.id_exm INNER JOIN classes c ON e.code_class=c.code_class WHERE ea.id_exm = $1 AND ea.user_id = $2',
+					text: 'SELECT ea.*, (SELECT count(*) FROM exam_answer_comments WHERE id_exm_ans = ea.id_exm_ans) total_comments, to_jsonb(e.*) exam, to_jsonb(c.*) class FROM exam_answers ea INNER JOIN exams e ON ea.id_exm=e.id_exm INNER JOIN classes c ON e.code_class=c.code_class WHERE ea.id_exm = $1 AND ea.user_id = $2',
 					values: [idExm || undefined, req.user.user_id]
 				}
 				
@@ -57,7 +57,7 @@ module.exports = {
 			}
 			
 			sql = {
-				text: `SELECT ea.*, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user" FROM exam_answers ea
+				text: `SELECT ea.*, (SELECT count(*) FROM exam_answer_comments WHERE id_exm_ans = ea.id_exm_ans) total_comments, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user" FROM exam_answers ea
 					   INNER JOIN users u ON ea.user_id=u.user_id
 					   WHERE ea.id_exm = $1`,
 				values: [idExm || undefined]
@@ -155,8 +155,8 @@ module.exports = {
 		try{
 			//checking the user's answers
 			let sql = {
-				text: 'SELECT * FROM exam_answers WHERE user_id=$1',
-				values: [req.user?.user_id]
+				text: 'SELECT * FROM exam_answers WHERE user_id=$1 AND id_exm = $2',
+				values: [req.user?.user_id, id_exm]
 			}
 			const getUser = await querySync(sql)
 			
@@ -164,8 +164,8 @@ module.exports = {
 				
 				content = content.length? `{${JSON.stringify(content).replace('[', '{').replace(']', '}')}}`: undefined
 				sql = {
-					text: 'UPDATE exam_answers SET content = content || $1 WHERE user_id=$2 RETURNING *',
-					values: [ content, req.user?.user_id ]
+					text: 'UPDATE exam_answers SET content = content || $1 WHERE id_exm_ans = $2 RETURNING *',
+					values: [ content, getUser.rows[0].id_exm_ans ]
 				}
 				const updateData = await querySync(sql);
 				return res.json({
@@ -178,15 +178,9 @@ module.exports = {
 				text: 'INSERT INTO exam_answers(content, id_exm, user_id) VALUES($1, $2, $3) RETURNING *',
 				values: [ content, id_exm, req.user?.user_id ]
 			}
-			const sql2 = {
-				text: 'UPDATE exams SET total_answers = total_answers + 1 WHERE id_exm = $1',
-				values: [ id_exm ]
-			}
+			
 			//insert
 			const insertData = await querySync(sql);
-			
-			//update total answers
-			await querySync(sql2)
 			
 			res.json({
 				data: insertData.rows

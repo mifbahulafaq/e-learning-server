@@ -14,7 +14,7 @@ const arrMsg = "Must be Array"
 
 const addValid = [
 	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
-	body('description').if(body('description').exists()).customSanitizer(noWhitespace).isLength({max:255}).withMessage(lengthMsg),
+	body('description').if(body('description').exists()).isLength({max:255}).withMessage(lengthMsg),
 	body('schedule').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
 	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
 	body('code_class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine),
