@@ -35,7 +35,7 @@ module.exports = {
 				if(!policy.can('read', subjectClassDiscuss)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to perform this action"
+						message: "You're not allowed to get class disscussions"
 					})
 				}
 			}

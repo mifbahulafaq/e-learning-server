@@ -40,7 +40,7 @@ module.exports = {
 				if(!policy.can('read', subjectAssAns)){//student auth
 					return res.json({
 						error: 1,
-						message: "You're not allowed to perform this action"
+						message: "You're not allowed to perform this assignment answer"
 					})
 				}
 				
@@ -106,7 +106,7 @@ module.exports = {
 				if(!policy.can('readsingle',subjectAssAns2)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to read this data"
+						message: "You're not allowed to read this single assignment answer"
 					})
 				}
 			}

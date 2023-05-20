@@ -39,7 +39,7 @@ module.exports = {
 				if(!policy.can('read', subjectExmAnsComments)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to perform this action"
+						message: "You're not allowed to get answer comments"
 					})
 				}
 			}
@@ -106,7 +106,7 @@ module.exports = {
 		if(!policy.can('create', 'Exam_answer_comment')){
 			return res.json({
 				error: 1,
-				message: 'You have no access to add a matter discussion'
+				message: 'You have no access to add a answer comment'
 			})
 		}
 		

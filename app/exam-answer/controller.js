@@ -42,7 +42,7 @@ module.exports = {
 				if(!policy.can('read', subjectExamAns)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to perform this action"
+						message: "You're not allowed to get exam answers"
 					})
 				}
 				
@@ -100,7 +100,7 @@ module.exports = {
 				if(!policy.can('readsingle',subjectExam2)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to read this data"
+						message: "You're not allowed to get this exam answer"
 					})
 				}
 			}
@@ -212,7 +212,7 @@ module.exports = {
 			if(!policy.can('update', subjectExamAns)){
 				return res.json({
 					error: 1,
-					message: "you're not allowed to perform this action"
+					message: "you're not allowed to add a score"
 				})
 			}
 			

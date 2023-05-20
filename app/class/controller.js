@@ -16,7 +16,7 @@ module.exports = {
 		if(!policy.can('read', 'Class')){
 			return res.json({
 				error: 1,
-				message: "You're not allowed to perform this action"
+				message: "You're not allowed to get this class data"
 			})
 		}
 		
@@ -76,7 +76,7 @@ module.exports = {
 				if(!policy.can('readsingle',subjectClass)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to perform this action"
+						message: "You're not allowed to get this single class"
 					})
 				}
 				res.json({data: resultTeacher.rows[0]})
@@ -138,7 +138,7 @@ module.exports = {
 			removeFiles(filesOfClass) //removing documents of class
 			
 			return res.json({
-				message: 'Data is successfully deleted',
+				message: 'Class data is successfully deleted',
 				data: result.rows[0]
 			})
 			
@@ -203,7 +203,7 @@ module.exports = {
 			if(!policy.can('update', subjectClass)){
 				return res.json({
 					error: 1,
-					message: "You can't update this data"
+					message: "You can't update this class data"
 				})
 			}
 			

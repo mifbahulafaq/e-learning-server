@@ -14,7 +14,7 @@ module.exports = {
 	async getByClass(req, res, next){
 		
 		const code_class = parseInt(req.params.code_class) || undefined ;
-		const { latest } = req.query; 
+		let qs = req.query; 
 		const policy = policyFor(req.user);
 		const sqlFunc = function(teacherRole){
 			
@@ -22,8 +22,27 @@ module.exports = {
 					text: !teacherRole? "AND user_id = $2": "",
 					values: !teacherRole? [code_class, req.user?.user_id]: [code_class]
 			}
+			
+			const csSql = 'AND schedule > NOW() ORDER BY schedule ASC LIMIT 1'
+			// const latestSql = `
+				// ORDER BY
+				// CASE WHEN schedule < NOW() THEN ROW_NUMBER() OVER() + COUNT(*) OVER()
+					
+					 // ELSE ROW_NUMBER() OVER()
+				// END
+				// ASC`
+			
+			const latestSql = `
+				ORDER BY
+				CASE WHEN schedule < NOW() THEN CAST(CEIL(EXTRACT(EPOCH FROM NOW())) || '0' AS NUMERIC) - CEIL(EXTRACT(EPOCH FROM schedule))
+					
+					 ELSE CEIL(EXTRACT(EPOCH FROM schedule))
+				END
+				ASC`
+			
+			if(parseInt(qs.cs)) delete qs.latest //cs (coming soon)
 			return {
-				text: `SELECT e.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo, (SELECT count(*) FROM exam_answers WHERE id_exm = e.id_exm ${additionalSql.text}) total_answers FROM exams e INNER JOIN classes c ON e.code_class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE e.code_class = $1 ${ parseInt(latest)?'ORDER BY id_exm DESC LIMIT 1':''}`,
+				text: `SELECT e.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo, (SELECT count(*) FROM exam_answers WHERE id_exm = e.id_exm ${additionalSql.text}) total_answers FROM exams e INNER JOIN classes c ON e.code_class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE e.code_class = $1 ${parseInt(qs.cs)? csSql: ''} ${ parseInt(qs.latest)?latestSql:''}`,
 				values: additionalSql.values
 			}
 		}
@@ -50,7 +69,7 @@ module.exports = {
 				if(!policy.can('read', subjectExam2)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to perform this action"
+						message: "You're not allowed to get exam data"
 					})
 					
 				}
@@ -95,7 +114,7 @@ module.exports = {
 				if(!policy.can('readsingle',subjectExam2)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to read this data"
+						message: "You're not allowed to get a single exam data"
 					})
 				}
 			}
@@ -180,7 +199,7 @@ module.exports = {
 				
 				return res.json({
 					error: 1,
-					message: 'You have no access to edit this data'
+					message: 'You have no access to edit this exam'
 				})
 			}
 			
@@ -241,7 +260,7 @@ module.exports = {
 				
 				return res.json({
 					error: 1,
-					message: 'You have no access to delete this data'
+					message: 'You have no access to delete this exam'
 				})
 			}
 			
@@ -257,7 +276,7 @@ module.exports = {
 			}
 			
 			return res.json({
-				message: 'The data is successfully deleted',
+				message: 'The exam data is successfully deleted',
 				data: resultDelete.rows
 			})
 			

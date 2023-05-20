@@ -12,7 +12,7 @@ module.exports = function(user){
 		builder.can('read','Class')
 		builder.can('readsingle','Class',{user_id: user.user_id})
 		
-		builder.can('create','Schedule', {user_id: user.user_id})
+		builder.can('create','Schedule')
 		builder.can('read','Schedule',{user_id: user.user_id})
 		
 		builder.can('create','Class_student')

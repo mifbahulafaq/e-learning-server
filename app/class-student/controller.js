@@ -14,7 +14,7 @@ module.exports = {
 			if(!policy.can('readAll', 'Class_student')){
 				return res.json({
 					error: 1,
-					message: "You're not allowed to perform this action"
+					message: "You're not allowed to get class students"
 				})
 			}
 			
@@ -60,7 +60,7 @@ module.exports = {
 				if(!policy.can('read', subjectStudent)){
 					return res.json({
 						error: 1,
-						message: "You're not allowed to perform this action"
+						message: "You're not allowed to get class students"
 					})
 				}
 				
@@ -136,7 +136,7 @@ module.exports = {
 			if(!policy.can('create', 'Class_student')){
 				return res.json({
 					error: 1,
-					message: "You aren't allowed to perform this action"
+					message: "You aren't allowed to add a class student"
 				})
 			}
 			
@@ -174,7 +174,7 @@ module.exports = {
 			if(!policy.can('create', 'Class_student')){
 				return res.json({
 					error: 1,
-					message: "You aren't allowed to perform this action"
+					message: "You aren't allowed to join a class"
 				})
 			}
 			
@@ -234,7 +234,7 @@ module.exports = {
 					
 					return res.json({
 						error: 1,
-						message: "You aren't allowed to perform this action"
+						message: "You aren't allowed to unenrol"
 					})
 				}
 				

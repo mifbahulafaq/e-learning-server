@@ -14,24 +14,6 @@ module.exports = {
 		const code_class = parseInt(req.params.code_class);
 		const policy = policyFor(req.user)
 		
-		//filter
-		let { latest, date } = req.query;
-		let filterDateString = "";
-		let filterDateArray = [];
-		
-		if(!isNaN((new Date(date)).getDate())){
-			
-			date = new Date(date)
-			const locale = "en-CA"
-			const opt = {dateStyle:"short"};
-			
-			filterDateString = "AND m.schedule >= $2 AND m.schedule < $3"
-			filterDateArray.push(date.toLocaleString(locale, opt)+ " " +"00:00")
-			date.setDate(date.getDate() + 1)
-			filterDateArray.push(date.toLocaleString(locale, opt)+ " " +"00:00")
-			
-		}
-		
 		try{
 			
 			let sqlGetClass = {
@@ -60,13 +42,49 @@ module.exports = {
 				}
 			}
 			
+			//filter
+			let qs = req.query;
+			let filterString = "";
+			let filterArray = [];
+			const isDate = date=>isNaN((new Date(date)).getDate())
+			
+			if(parseInt(qs.cs)) delete qs.latest //cs (coming soon)
+			if(!isDate(qs.schedule)){
+				
+				qs = { schedule: qs.schedule }
+				filterString = 'AND m.schedule = $2'
+				filterArray.push(qs.schedule)
+				
+			}
+			if(!isDate(qs.date) && isDate(qs.schedule)){
+				
+				const date = new Date(qs.date)
+				const locale = "en-CA"
+				const opt = {dateStyle:"short"};
+				
+				//make the date to be a day
+				filterString = "AND m.schedule >= $2 AND m.schedule < $3"
+				filterArray.push(date.toLocaleString(locale, opt)+ " " +"00:00")
+				date.setDate(date.getDate() + 1)
+				filterArray.push(date.toLocaleString(locale, opt)+ " " +"00:00")
+				
+			}
+			
+			const csSql = 'AND schedule > NOW() ORDER BY schedule ASC LIMIT 1'
+			const latestSql = `
+				ORDER BY
+				CASE WHEN schedule < NOW() THEN CAST(CEIL(EXTRACT(EPOCH FROM NOW())) || '0' AS NUMERIC) - CEIL(EXTRACT(EPOCH FROM schedule))
+					
+					 ELSE CEIL(EXTRACT(EPOCH FROM schedule))
+				END
+				ASC`
 			const query = {
 				text: `SELECT m.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo, (SELECT count(*) FROM matter_discussions md WHERE md.matt = m.id_matter) total_comments
 				FROM matters m 
 				INNER JOIN classes c ON m.class=c.code_class 
 				INNER JOIN users t ON c.teacher = t.user_id 
-				WHERE m.class = $1 ${filterDateString} ${parseInt(latest)?'ORDER BY id_matter DESC':''}`,
-				values: [code_class || undefined, ...filterDateArray]
+				WHERE m.class = $1 ${filterString} ${parseInt(qs.cs)? csSql: ''} ${parseInt(qs.latest)?latestSql:''}`,
+				values: [code_class || undefined, ...filterArray]
 			}
 			
 			const { rows: matterData } = await querySync(query);
