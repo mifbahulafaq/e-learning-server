@@ -346,5 +346,9 @@ module.exports = {
 			console.log(err)
 			next(err)
 		}
+	},
+	async tester(req, res, next){
+		
+		return res.end()
 	}
 }
