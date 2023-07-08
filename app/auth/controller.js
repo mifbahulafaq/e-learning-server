@@ -55,6 +55,10 @@ module.exports = {
 			})
 		})(req,res,next)
 	},
+	async google (req,res,next){
+		
+		res.send('logged in successfully')
+	},
 	
 	async register(req,res, next){
 		const errInsert = validationResult(req);

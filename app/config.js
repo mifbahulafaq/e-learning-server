@@ -22,4 +22,8 @@ module.exports = {
 	dbName : process.env.DB_NAME,
 	dbUser : process.env.DB_USER,
 	dbPassword : process.env.DB_PASSWORD,
+	
+	googleClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
+	googleClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+	googleRedirect: process.env.GOOGLE_OAUTH_REDIRECT
 }

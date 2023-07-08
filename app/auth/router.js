@@ -22,10 +22,11 @@ const authValidator = [
 	.customSanitizer(pwdSanitizer),
 ]
 
-const { register, login, logout, local, me} = require('./controller');
+const { register, login, google, logout, local, me} = require('./controller');
 
 passport.use(new LocalStrategy({usernameField: 'email'}, local));
 router.post('/login',multer().none(), login);
+router.post('/oauth/google',multer().none(), google);
 router.post('/register',multerMidd(uploadPhoto).single('photo'),authValidator, register);
 router.delete('/logout', logout);
 router.get('/me', me);
