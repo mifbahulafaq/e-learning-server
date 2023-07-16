@@ -5,8 +5,12 @@ const removeFiles = require('../utils/removeFiles');
 const passport = require('passport');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const config = require('../config');
+const config = require('../../config');
 const getToken = require('../utils/get-token');
+const qs = require('qs')
+
+//services
+const { getGoogleOauthToken, getGooleUser } = require('../../services/oauth-google') 
 
 module.exports = {
 	
@@ -57,7 +61,33 @@ module.exports = {
 	},
 	async google (req,res,next){
 		
-		res.send('logged in successfully')
+		try{
+			
+			//get code from the query string
+			const code = req.query.code
+			const pathUrl = req.query.state || '/'
+			// console.log(req.query)
+			// console.log(code)
+			
+			console.log(code)
+			if(!code) return next(new Error('Authorization code not provided'))
+			
+			//use the code to get the id and access tokens
+			const tokens = await getGoogleOauthToken({ code })
+			const { id_token, access_token } = tokens
+			return res.send('success')
+			//use the tokens to get the user info
+			const userInfo = await getGooleUser({ id_token, access_token})
+			
+			if(!verified_email) return next(new Error('Google account not verified'))
+			
+			//update user if user alredy exists or create new user
+			return res.send('logged in with google successfully')
+			
+		}catch(err){
+			next(err)
+		}
+		
 	},
 	
 	async register(req,res, next){

@@ -7,9 +7,8 @@ const logger = require('morgan');
 const cors = require('cors');
 const app = express();
 const pool = require('./database');
-let config = require('./app/config');
+let config = require('./config');
 let port = config.port || 3000;
-
 //import middlewares
 const decodeToken = require('./middlewares/decodeToken');
 const privateStaticFile = require('./middlewares/privateStaticFile');

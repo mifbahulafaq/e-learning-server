@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { querySync } = require('../database');
-const config = require('../app/config');
+const config = require('../config');
 const getToken = require('../app/utils/get-token');
 
 module.exports = async function(req, res, next){

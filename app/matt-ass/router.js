@@ -1,7 +1,7 @@
 const router = require('express').Router()
 const { body } = require('express-validator')
 const multer = require('../../middlewares/upload')
-const config = require('../config')
+const config = require('../../config')
 const { querySync } = require('../../database')
 
 //messages

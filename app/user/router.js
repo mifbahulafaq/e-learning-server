@@ -1,7 +1,7 @@
 const router = require('express').Router()
 const multerMidd = require('../../middlewares/upload')
 const multer = require('multer')
-const { uploadPhoto } = require('../config')
+const { uploadPhoto } = require('../../config')
 const { body } = require('express-validator')
 const bcrypt = require('bcrypt')
 const HASH_ROUND = 10

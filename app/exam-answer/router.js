@@ -4,7 +4,7 @@ const multer2 = require('multer');
 const { body, check } = require('express-validator');
 const moment = require('moment');
 const { querySync } = require('../../database');
-const { uploadDoct } = require('../config');
+const { uploadDoct } = require('../../config');
 
 //middlewares
 const fileToBody = require('../../middlewares/locateFile')

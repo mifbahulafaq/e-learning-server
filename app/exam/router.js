@@ -3,7 +3,7 @@ const multer = require('../../middlewares/upload');
 const { body } = require('express-validator');
 const moment = require('moment');
 const { querySync } = require('../../database');
-const { uploadDoct } = require('../config');
+const { uploadDoct } = require('../../config');
 
 const isIntMessage = "Input must be a integer";
 const noEmptyMsg = 'This field must be filled';

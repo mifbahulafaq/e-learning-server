@@ -4,7 +4,7 @@ const path = require('path');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 const removeFiles = require('../utils/removeFiles');
-const config = require('../config');
+const config = require('../../config');
 const fs = require('fs')
 
 module.exports = {

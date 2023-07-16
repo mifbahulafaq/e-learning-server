@@ -4,7 +4,7 @@ const { subject } = require('@casl/ability')
 const { validationResult } = require('express-validator')
 const updateData = require('../utils/updateData')
 const removeFiles = require('../utils/removeFiles')
-const config = require('../config')
+const config = require('../../config')
 const path = require('path')
 
 
