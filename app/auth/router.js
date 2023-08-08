@@ -46,7 +46,7 @@ module.exports = router;
 		console.log(err.stack)
 	}
 }
-//custiom sanitizer
+//custoom sanitizer
  async function pwdSanitizer(value){
 	 return  bcrypt.hashSync(value,HASH_ROUND);
 }

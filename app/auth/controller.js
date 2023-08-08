@@ -6,11 +6,12 @@ const passport = require('passport');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const config = require('../../config');
-const getToken = require('../utils/get-token');
 const qs = require('qs')
 
 //services
-const { getGoogleOauthToken, getGooleUser } = require('../../services/oauth-google') 
+const { getGoogleOauthToken, getGooleUser } = require('../../services/oauth.service.js') 
+//utils
+const getToken = require('../utils/get-token');
 
 module.exports = {
 	
@@ -66,25 +67,75 @@ module.exports = {
 			//get code from the query string
 			const code = req.query.code
 			const pathUrl = req.query.state || '/'
-			// console.log(req.query)
-			// console.log(code)
+			const createError = new Error()
 			
-			console.log(code)
-			if(!code) return next(new Error('Authorization code not provided'))
+			if(!code) {
+				createError.message = 'Authorization code not provided!'
+				createError.status = 401
+				return next(createError)
+			}
 			
 			//use the code to get the id and access tokens
-			const tokens = await getGoogleOauthToken({ code })
-			const { id_token, access_token } = tokens
-			return res.send('success')
-			//use the tokens to get the user info
-			const userInfo = await getGooleUser({ id_token, access_token})
+			let resultSQL = await getGoogleOauthToken({ code })
+			const { id_token, access_token } = resultSQL.data
 			
-			if(!verified_email) return next(new Error('Google account not verified'))
+			//use the tokens to get the user info
+			resultSQL = await getGooleUser({ id_token, access_token})
+			const { name, verified_email, email, picture } = resultSQL.data
+			
+			if(!verified_email){
+				
+				createError.message = 'Authorization code not provided!'
+				createError.status = 401
+				return next(createError)
+			}
 			
 			//update user if user alredy exists or create new user
-			return res.send('logged in with google successfully')
+			const sql_getEmail = {
+				text: 'SELECT * FROM users WHERE email = $1 ',
+				values: [email]
+			}
+			resultSQL = await querySync(sql_getEmail)
+			
+			if(resultSQL.rowCount){
+				
+				const { user_id } = resultSQL.rows[0]
+				const token = jwt.sign({user_id}, config.secretKey)
+				
+				const sql_updateToken = {
+					text: 'UPDATE users SET token = token || ARRAY[$1] WHERE user_id = $2',
+					values: [token, user_id]
+				}
+				resultSQL = await querySync(sql_updateToken)
+				
+				//const token = await signToken()
+				res.redirect(config.client_url)
+				
+			}else{
+				
+				const sql_createId = {
+					text: "SELECT nextval('userid')"
+				}
+				resultSQL = await querySync(sql_createId)
+				
+				const user_id = parseInt(resultSQL.rows[0].nextval)
+				
+				const token = jwt.sign({user_id}, config.secretKey)
+				
+				const sql_createUser = {
+					text: 'INSERT INTO users(user_id, name, email, token, photo) VALUES($1, $2, $3, ARRAY[$4], $5) ',
+					values: [user_id, name, email, token, picture]
+				}
+				resultSQL = await querySync(sql_createUser)
+				
+				// res.cookie('access_token', )
+				// res.cookie()
+				// res.cookie()
+				res.redirect(config.client_url)
+			}
 			
 		}catch(err){
+			
 			next(err)
 		}
 		

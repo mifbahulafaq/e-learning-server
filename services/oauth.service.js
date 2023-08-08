@@ -21,13 +21,13 @@ module.exports = {
 				qs.stringify(options), 
 				{
 					headers: {
-						'Content-Type': 'multipart/form-data',
+						'Content-Type': 'application/x-www-form-urlencoded',
 					}
 				}
 			)
-			return result.data
+			return result
 		}catch(err){
-			console.log(err)
+			
 			console.log('Failed to fetch google oauth token')
 			throw new Error(err)
 			
@@ -36,7 +36,7 @@ module.exports = {
 	},
 	async getGooleUser({ id_token, access_token }){
 		
-		const urlUserInfo = `https://www.googleapis/oauth2/userinfo?alt=json&access_token=${access_token}`
+		const urlUserInfo = `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`
 		try{
 			
 			const result = await axios.get(

@@ -1,4 +1,5 @@
-//test lagi
+
+const sqlUpdate = require('./app/utils/sqlUpdate')
 const http = require('http');
 const path = require('path');
 const createError = require('http-errors');
@@ -14,20 +15,7 @@ const decodeToken = require('./middlewares/decodeToken');
 const privateStaticFile = require('./middlewares/privateStaticFile');
 
 //import routers
-const authRouter = require('./app/auth/router');
-const classRouter = require('./app/class/router');
-const classStudentRouter = require('./app/class-student/router');
-const classDiscussRouter = require('./app/class-discussion/router');
-const matterDiscussRouter = require('./app/matter-discussion/router');
-const scheduleRouter = require('./app/schedule/router');
-const matterRouter = require('./app/matter/router');
-const examRouter = require('./app/exam/router');
-const examAnsRouter = require('./app/exam-answer/router');
-const examAnsCommentRouter = require('./app/exam-ans-comment/router');
-const assignmentRouter = require('./app/matt-ass/router')
-const assAnswerRouter = require('./app/ass-answer/router')
-const userRouter = require('./app/user/router')
-
+const { authRouter, apiRouter } = require('./routers')
 
 app.set('views', path.join(config.rootPath,'views'));
 app.set('view engine', 'ejs');
@@ -42,18 +30,22 @@ app.use(decodeToken);
 app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
 app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
 app.use('/auth',authRouter);
-app.use('/api',classRouter);
-app.use('/api',classStudentRouter);
-app.use('/api',classDiscussRouter);
-app.use('/api',matterDiscussRouter);
-app.use('/api',scheduleRouter);
-app.use('/api',matterRouter);
-app.use('/api',examRouter);
-app.use('/api',examAnsRouter);
-app.use('/api',examAnsCommentRouter);
-app.use('/api',assignmentRouter);
-app.use('/api',assAnswerRouter);
-app.use('/api',userRouter);
+app.use('/api', apiRouter);
+//router test
+app.use('/trying', (req,res)=>{
+		
+		const returnSql = sqlUpdate(
+			{user_id: 1},
+			'users',
+			 {
+				name: 'mif',
+				email: 'mif@',
+				gender: undefined
+			},
+		)
+		console.log(returnSql)
+		return res.send('test')
+})
 
 //Error handling router
 app.use((req,res,next)=>{
