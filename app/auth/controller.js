@@ -9,7 +9,7 @@ const config = require('../../config');
 const qs = require('qs')
 
 //services
-const { getGoogleOauthToken, getGooleUser } = require('../../services/oauth.service.js') 
+const { getGoogleOauthToken, getGooleUser } = require('./service') 
 //utils
 const getToken = require('../utils/get-token');
 
