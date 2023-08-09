@@ -2,26 +2,21 @@ const { querySync } = require('../../database')
 const path = require('path')
 const config = require('../../config')
 const sqlUpdate = require('../utils/sqlUpdate')
+const sqlGet = require('../utils/sqlGet')
 const removeFiles = require('../utils/removeFiles')
+const appError = require('../utils/appError')
 
 
 module.exports = {
 	
-	async getUserById(id){
-		
+	async findUser(where){
 		try{
-			const sql_get_user = {
-				text: 'SELECT user_id, name, email, gender, photo FROM users WHERE user_id = $1',
-				values : [id]
-			}
-		
-			const result = await querySync(sql_get_user)
-			return result.rows[0]
+			
+			const sql = sqlGet("users", where)
+			return await querySync(sql)
 			
 		}catch(err){
-
-			throw new Error(err)
-			
+			throw appError(err)
 		}
 	},
 	

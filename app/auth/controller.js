@@ -10,8 +10,10 @@ const qs = require('qs')
 
 //services
 const { getGoogleOauthToken, getGooleUser } = require('./service') 
+const { findUser } = require('../user/service') 
 //utils
 const getToken = require('../utils/get-token');
+const appError = require('../utils/appError');
 
 module.exports = {
 	
@@ -66,14 +68,8 @@ module.exports = {
 			
 			//get code from the query string
 			const code = req.query.code
-			const pathUrl = req.query.state || '/'
-			const createError = new Error()
 			
-			if(!code) {
-				createError.message = 'Authorization code not provided!'
-				createError.status = 401
-				return next(createError)
-			}
+			if(!code) return next(appError('Authorization code not provided!', 401))
 			
 			//use the code to get the id and access tokens
 			let resultSQL = await getGoogleOauthToken({ code })
@@ -83,19 +79,11 @@ module.exports = {
 			resultSQL = await getGooleUser({ id_token, access_token})
 			const { name, verified_email, email, picture } = resultSQL.data
 			
-			if(!verified_email){
-				
-				createError.message = 'Authorization code not provided!'
-				createError.status = 401
-				return next(createError)
-			}
+			if(!verified_email) return next(appError('Authorization code not provided!', 401))
 			
 			//update user if user alredy exists or create new user
-			const sql_getEmail = {
-				text: 'SELECT * FROM users WHERE email = $1 ',
-				values: [email]
-			}
-			resultSQL = await querySync(sql_getEmail)
+			
+			const userResult = await findUser({ email })
 			
 			if(resultSQL.rowCount){
 				

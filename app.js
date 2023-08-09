@@ -1,5 +1,12 @@
 
+//test
 const sqlUpdate = require('./app/utils/sqlUpdate')
+const sqlGet = require('./app/utils/sqlGet')
+const userService = require('./app/user/service')
+
+//end test
+
+
 const http = require('http');
 const path = require('path');
 const createError = require('http-errors');
@@ -32,18 +39,10 @@ app.use('/private/document/:user_id',privateStaticFile, express.static(path.join
 app.use('/auth',authRouter);
 app.use('/api', apiRouter);
 //router test
-app.use('/trying', (req,res)=>{
+app.use('/trying', async (req,res)=>{
 		
-		const returnSql = sqlUpdate(
-			{user_id: 1},
-			'users',
-			 {
-				name: 'mif',
-				email: 'mif@',
-				gender: undefined
-			},
-		)
-		console.log(returnSql)
+		const returnSql = await userService.findUser()
+		console.log(returnSql.rows)
 		return res.send('test')
 })
 

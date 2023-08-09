@@ -6,7 +6,8 @@ const removeFiles = require('../utils/removeFiles')
 const config = require('../../config')
 const path = require('path')
 
-const { 
+const {
+	findUser,
 	getUserById,
 	updatePass,
 	updateUser
@@ -30,8 +31,8 @@ module.exports = {
 		
 		try{
 			
-			const userData = await getUserById(user_id)
-			return res.json(userData)
+			const userData = await findUser({user_id})
+			return res.json(userData.rows[0])
 			
 		}catch(err){
 			
