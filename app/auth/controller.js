@@ -9,42 +9,47 @@ const config = require('../../config');
 const qs = require('qs')
 
 //services
-const { getGoogleOauthToken, getGooleUser } = require('./service') 
-const { findUser } = require('../user/service') 
+const authService = require('./service')
+const userService = require('../user/service') 
 //utils
 const getToken = require('../utils/get-token');
 const appError = require('../utils/appError');
 
+//Cookie Options
+const accessTokenCookieOptions = {
+	expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
+	maxAge: config.accessTokenExpireIn * 60 * 1000,
+	httpOnly: true,
+	sameSite: 'lax'
+}
+const refreshTokenCookieOptions = {
+	expires: new Date(Date.now() + config.refreshTokenExpireIn * 60 * 1000),
+	maxAge: config.refreshTokenExpireIn * 60 * 1000,
+	httpOnly: true,
+	sameSite: 'lax'
+}
+
 module.exports = {
 	
 	async local(email, password, done){
-		const get ={
-			text:'SELECT * FROM users WHERE email = $1',
-			values:[email]
-		}
 		
 		try{
-			let result = await querySync(get);
+			let result = await userService.findUser({ email })
 			
 			if(result.rowCount){
 				if(bcrypt.compareSync(password,result.rows[0].password)){
 					
 					let {user_id, ...remains } = result.rows[0]
-					token = jwt.sign({user_id}, config.secretKey);
 					
-					const update ={
-						text:"UPDATE users SET token = token || ARRAY[$1] WHERE user_id = $2",
-						values:[token, user_id]
-					}
-					await querySync(update);
+					const { access_token, refresh_token } = await authService.signToken(user_id, {update: true})
 					
-					return done(null,token)
+					return done(null,{ access_token, refresh_token })
 				}
 			}
 			
-			done(null,false,{message:'Incorrect email or password'})
+			done(null,{},{message:'Incorrect email or password'})
 		}catch(err){
-			done(err,null)
+			done(err,{})
 		}
 	},
 	
@@ -52,13 +57,21 @@ module.exports = {
 		passport.authenticate('local',(err, token, info)=>{
 			
 			if(err) return next(err)
-			if(!token) return res.json({
+			
+			const { access_token, refresh_token } = token
+			
+			if(!access_token) return res.json({
 				error: 1,
 				message: info.message
 			})
+			
+			res.cookie('access_token', access_token, accessTokenCookieOptions)
+			res.cookie('refresh_token', refresh_token, refreshTokenCookieOptions)
+			res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
+			
 			res.json({
 				message:'Logged in successfully',
-				token
+				token: access_token
 			})
 		})(req,res,next)
 	},
@@ -68,63 +81,20 @@ module.exports = {
 			
 			//get code from the query string
 			const code = req.query.code
-			
+
 			if(!code) return next(appError('Authorization code not provided!', 401))
+				
+			const { refresh_token, access_token } = await authService.googleOauth(code)
 			
-			//use the code to get the id and access tokens
-			let resultSQL = await getGoogleOauthToken({ code })
-			const { id_token, access_token } = resultSQL.data
+			res.cookie('access_token', access_token, accessTokenCookieOptions)
+			res.cookie('refresh_token', refresh_token, refreshTokenCookieOptions)
+			res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
 			
-			//use the tokens to get the user info
-			resultSQL = await getGooleUser({ id_token, access_token})
-			const { name, verified_email, email, picture } = resultSQL.data
-			
-			if(!verified_email) return next(appError('Authorization code not provided!', 401))
-			
-			//update user if user alredy exists or create new user
-			
-			const userResult = await findUser({ email })
-			
-			if(resultSQL.rowCount){
-				
-				const { user_id } = resultSQL.rows[0]
-				const token = jwt.sign({user_id}, config.secretKey)
-				
-				const sql_updateToken = {
-					text: 'UPDATE users SET token = token || ARRAY[$1] WHERE user_id = $2',
-					values: [token, user_id]
-				}
-				resultSQL = await querySync(sql_updateToken)
-				
-				//const token = await signToken()
-				res.redirect(config.client_url)
-				
-			}else{
-				
-				const sql_createId = {
-					text: "SELECT nextval('userid')"
-				}
-				resultSQL = await querySync(sql_createId)
-				
-				const user_id = parseInt(resultSQL.rows[0].nextval)
-				
-				const token = jwt.sign({user_id}, config.secretKey)
-				
-				const sql_createUser = {
-					text: 'INSERT INTO users(user_id, name, email, token, photo) VALUES($1, $2, $3, ARRAY[$4], $5) ',
-					values: [user_id, name, email, token, picture]
-				}
-				resultSQL = await querySync(sql_createUser)
-				
-				// res.cookie('access_token', )
-				// res.cookie()
-				// res.cookie()
-				res.redirect(config.client_url)
-			}
+			res.redirect(config.client_url)
 			
 		}catch(err){
-			
-			next(err)
+			console.log('Failed to authorize Google user', err)
+			res.redirect(`${config.client_url}/oauth/error`)
 		}
 		
 	},

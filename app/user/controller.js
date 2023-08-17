@@ -6,12 +6,7 @@ const removeFiles = require('../utils/removeFiles')
 const config = require('../../config')
 const path = require('path')
 
-const {
-	findUser,
-	getUserById,
-	updatePass,
-	updateUser
-} = require('./service')
+const userService = require('./service')
 
 
 module.exports = {
@@ -31,7 +26,7 @@ module.exports = {
 		
 		try{
 			
-			const userData = await findUser({user_id})
+			const userData = await userService.findUser({user_id})
 			return res.json(userData.rows[0])
 			
 		}catch(err){
@@ -63,7 +58,7 @@ module.exports = {
 			const { name, email, gender, photo } = req.body
 			const updateData = { name, email, gender, photo}
 			
-			return res.json(await updateUser({user_id}, updateData))
+			return res.json(await userService.updateUser({user_id}, updateData))
 			
 		}catch(err){
 			
@@ -89,7 +84,7 @@ module.exports = {
 			
 			const { new_password } = req.body
 
-			const result = await updatePass(new_password, user_id)
+			const result = await userService.updatePass(new_password, user_id)
 			
 			return res.json({
 				error: 0,

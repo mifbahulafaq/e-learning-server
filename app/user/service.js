@@ -9,6 +9,30 @@ const appError = require('../utils/appError')
 
 module.exports = {
 	
+	async insertUser(data){
+		
+		const keysOfData = Object.keys(data)
+		
+		if(!keysOfData.length) throw appError('No data sent')
+		
+		const sqlColumn = keysOfData.join(",")
+		const sqlValues = keysOfData.map((e,i)=>`$${i+1}`)
+		const valArr = keysOfData.map((e,i)=>data[e])
+		
+		 let sql_createUser = {
+			 text: `INSERT INTO users(${sqlColumn}) VALUES(${sqlValues}) `,
+			 values: valArr
+		 }
+		 
+		 try{
+			
+			 return await querySync(sql_createUser)
+
+		 }catch(err){
+			 throw err
+		 }
+	},
+	
 	async findUser(where){
 		try{
 			

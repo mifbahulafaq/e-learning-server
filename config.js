@@ -6,11 +6,16 @@ module.exports = {
 	client_url : process.env.CLIENT_URL,
 	serviceName : process.env.SERVICE_NAME,
 	rootPath: path.resolve(__dirname),
-	secretKey:  process.env.SECRET_KEY,
+
+	accessTokenSecretKey:  process.env.ACCESS_TOKEN_SECRET_KEY,
+	refreshTokenSecretKey:  process.env.REFRESH_TOKEN_SECRET_KEY,
+	
 	accessTokenPrivateKey: process.env.ACCESS_TOKEN_PRIVATE_KEY,
 	accessTokenPublicKey: process.env.ACCESS_TOKEN_PUBLIC_KEY,
 	refreshTokenPrivateKey: process.env.REFRESH_TOKEN_PRIVATE_KEY,
 	refreshTokenPublicKey: process.env.REFRESH_TOKEN_PUBLIC_KEY,
+	accessTokenExpireIn: 1, //minute
+	refreshTokenExpireIn: 59,//minute
 	uploadPhoto: {
 		dest: path.resolve(__dirname, './public/photo'),
 		ext: ['.jpg','.png','.jpeg'],

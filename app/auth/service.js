@@ -1,7 +1,10 @@
 const qs = require('qs')
+const jwt = require('jsonwebtoken')
 const axios = require('axios')
 const config = require('../../config')
 const { querySync } = require('../../database')
+
+const { findUser, insertUser } = require('../user/service')
 
 const appError = require('../utils/appError')
 const sqlGet = require('../utils/sqlGet')
@@ -60,5 +63,66 @@ module.exports = {
 			
 		}
 	},
+	
+	async googleOauth(code){
+		
+		try{
+			console.log(this)
+			//use the code to get the id and access tokens
+			const { data: { id_token, access_token } } = await this.getGoogleOauthToken({ code })
+			
+			//use the tokens to get the user info
+			const { data: { name, verified_email, email, picture } } = await this.getGooleUser({ id_token, access_token})
+			
+			if(!verified_email) return { error:1, message:"Email isn't verified", statusCode: 401}
+			
+			//update user if user alredy exists or create new user
+			
+			const sqlResult = await findUser({ email })
+			
+			if(sqlResult.rowCount){
+				
+				const { user_id } = sqlResult.rows[0]
+				
+				return await this.signToken(user_id, {update: true})
+				
+			}else{
+				
+				const sql_createId = {
+					text: "SELECT nextval('userid')"
+				}
+				sqlResult = await querySync(sql_createId)
+				
+				const user_id = parseInt(sqlResult.rows[0].nextval)
+				
+				const { access_token, refresh_token } = await this.signToken(user_id)
+				
+				await insertUser({user_id, name, email, token: `{${access_token}}`, picture})
+				
+				return { access_token, refresh_token }
+			}
+		}catch(err){
+			throw err 
+		}
+	},
+	
+	async signToken(user_id, obj = {}){
+		
+		const access_token = jwt.sign({user_id}, config.accessTokenSecretKey)
+		const refresh_token = jwt.sign({user_id}, config.refreshTokenSecretKey)
+		
+		if(obj.update){
+			
+			const sql_updateToken = {
+				text: 'UPDATE users SET token = token || ARRAY[$1] WHERE user_id = $2',
+				values: [access_token, user_id]
+			}
+			const { rowCount } = await querySync(sql_updateToken)
+			
+			return { access_token, refresh_token }
+		}
+		
+		return { access_token, refresh_token }
+	}
 	
 }

@@ -1,8 +1,4 @@
 
-//test
-const sqlUpdate = require('./app/utils/sqlUpdate')
-const sqlGet = require('./app/utils/sqlGet')
-const userService = require('./app/user/service')
 
 //end test
 
@@ -13,6 +9,7 @@ const createError = require('http-errors');
 const express = require('express');
 const logger = require('morgan');
 const cors = require('cors');
+const cookieParser = require('cookie-parser')
 const app = express();
 const pool = require('./database');
 let config = require('./config');
@@ -28,6 +25,7 @@ app.set('views', path.join(config.rootPath,'views'));
 app.set('view engine', 'ejs');
 
 //middleware
+app.use(cookieParser())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(logger('dev'));
@@ -39,10 +37,11 @@ app.use('/private/document/:user_id',privateStaticFile, express.static(path.join
 app.use('/auth',authRouter);
 app.use('/api', apiRouter);
 //router test
+
+//test
+const authService = require('./app/auth/service')
 app.use('/trying', async (req,res)=>{
 		
-		const returnSql = await userService.findUser()
-		console.log(returnSql.rows)
 		return res.send('test')
 })
 
