@@ -20,11 +20,12 @@ module.exports = async function(req, res, next){
 			message: 'Token expired'
 		})
 		
-		req.user = jwt.verify(token, config.secretKey);
+		req.user = jwt.verify(token, config.accessTokenSecretKey);
 		next();
 		
 	}catch(err){
 		if(err && err.name === 'JsonWebTokenError'){
+			
 			return res.json({
 				error: 1,
 				message: err.message

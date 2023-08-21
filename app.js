@@ -29,7 +29,10 @@ app.use(cookieParser())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(logger('dev'));
-app.use(cors())
+app.use(cors({
+    credentials: true,
+	origin: "http://localhost:3000"
+  }))
 app.use(decodeToken);
 
 app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
@@ -41,8 +44,26 @@ app.use('/api', apiRouter);
 //test
 const authService = require('./app/auth/service')
 app.use('/trying', async (req,res)=>{
+		const accessTokenCookieOptions = {
+			expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
+			maxAge: config.accessTokenExpireIn * 60 * 1000,
+			httpOnly: true,
+			sameSite: 'lax'
+		}
+		const refreshTokenCookieOptions = {
+			expires: new Date(Date.now() + config.refreshTokenExpireIn * 60 * 1000),
+			maxAge: config.refreshTokenExpireIn * 60 * 1000,
+			httpOnly: true,
+			sameSite: 'lax'
+		}
+		res.cookie('access_token', 'adsdas', accessTokenCookieOptions)
+		res.cookie('refresh_token', 'dsaasd', refreshTokenCookieOptions)
+		res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
 		
-		return res.send('test')
+		return res.status(200).json({
+			message:'Logged in successfully',
+			token: 'asdads'
+		})
 })
 
 //Error handling router
