@@ -33,32 +33,41 @@ app.use(cors({
     credentials: true,
 	origin: "http://localhost:3000"
   }))
+  
+app.use('/auth',authRouter);
 app.use(decodeToken);
 
 app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
 app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
-app.use('/auth',authRouter);
 app.use('/api', apiRouter);
 //router test
 
 //test
 const authService = require('./app/auth/service')
-app.use('/trying', async (req,res)=>{
-		const accessTokenCookieOptions = {
-			expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
-			maxAge: config.accessTokenExpireIn * 60 * 1000,
-			httpOnly: true,
-			sameSite: 'lax'
+app.use('/api/trying', async (req,res)=>{
+		
+		let user;
+		
+		console.log(req.cookies)
+		
+		if(!user){
+		
+			const accessTokenCookieOptions = {
+				expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
+				maxAge: config.accessTokenExpireIn * 60 * 1000,
+				httpOnly: true,
+				sameSite: 'lax'
+			}
+			const refreshTokenCookieOptions = {
+				expires: new Date(Date.now() + config.refreshTokenExpireIn * 60 * 1000),
+				maxAge: config.refreshTokenExpireIn * 60 * 1000,
+				httpOnly: true,
+				sameSite: 'lax'
+			}
+			res.cookie('access_token', 'adsdas', accessTokenCookieOptions)
+			res.cookie('refresh_token', 'dsaasd', refreshTokenCookieOptions)
+			res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
 		}
-		const refreshTokenCookieOptions = {
-			expires: new Date(Date.now() + config.refreshTokenExpireIn * 60 * 1000),
-			maxAge: config.refreshTokenExpireIn * 60 * 1000,
-			httpOnly: true,
-			sameSite: 'lax'
-		}
-		res.cookie('access_token', 'adsdas', accessTokenCookieOptions)
-		res.cookie('refresh_token', 'dsaasd', refreshTokenCookieOptions)
-		res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
 		
 		return res.status(200).json({
 			message:'Logged in successfully',

@@ -9,7 +9,7 @@ apiRouter.use(require('../app/class-discussion/router'));
 apiRouter.use(require('../app/matter-discussion/router'));
 apiRouter.use(require('../app/schedule/router'));
 apiRouter.use(require('../app/matter/router'));
-//apiRouter.use(require('../app/exam/router'));
+apiRouter.use(require('../app/exam/router'));
 apiRouter.use(require('../app/exam-answer/router'));
 apiRouter.use(require('../app/exam-ans-comment/router'));
 apiRouter.use(require('../app/matt-ass/router'))

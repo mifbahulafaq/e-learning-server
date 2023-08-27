@@ -1,24 +1,14 @@
 const jwt = require('jsonwebtoken');
-const { querySync } = require('../database');
 const config = require('../config');
-const getToken = require('../app/utils/get-token');
+const appError = require('../app/utils/appError')
 
 module.exports = async function(req, res, next){
-	const token = getToken(req);
-	if(!token) return next();
-	
-	const query ={
-		text: 'SELECT * FROM users WHERE $1 = ANY(token)',
-		values: [token]
-	}
 	
 	try{
-		const result = await querySync(query);
+	
+		const token = req.cookies.access_token
 		
-		if(!result.rowCount) return res.json({
-			error: 1,
-			message: 'Token expired'
-		})
+		if(!token) return next(appError('Token expired',401))
 		
 		req.user = jwt.verify(token, config.accessTokenSecretKey);
 		next();

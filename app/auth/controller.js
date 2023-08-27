@@ -12,7 +12,6 @@ const qs = require('qs')
 const authService = require('./service')
 const userService = require('../user/service') 
 //utils
-const getToken = require('../utils/get-token');
 const appError = require('../utils/appError');
 
 //Cookie Options
@@ -134,7 +133,7 @@ module.exports = {
 	},
 	
 	async logout (req,res, next){
-		const token = getToken(req);
+		const token = false// = getToken(req);
 		const query = {
 			text:'UPDATE users SET token = ARRAY_REMOVE(token, $1) WHERE $1 = ANY(token)',
 			values: [token]

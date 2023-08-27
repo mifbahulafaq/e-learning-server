@@ -6,7 +6,7 @@ const path = require('path');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 const removeFiles = require('../utils/removeFiles');
-const updateData = require('../utils/updateData');
+const sqlUpdate = require('../utils/sqlUpdate');
 const config = require('../../config');
 
 module.exports = {
@@ -223,8 +223,12 @@ module.exports = {
 			let removedAttachment = getSingle[0]?.attachment[0] || undefined;
 			
 			//updating the data
-			const columns = ['schedule',  'name',  'duration', 'description', 'attachment', 'code_class'];
-			let resultUpdate = await updateData(req, 'exams', columns);
+			const { schedule, name, duration, description, attachment, code_class} = req.body;
+			const updateData = { schedule, name, duration, description, attachment, code_class};
+			
+			sql = sqlUpdate({ id_exm }, 'exams', updateData)
+			
+			let resultUpdate = await querySync(sql);
 			
 			if(resultUpdate.rowCount && req.file){
 				if(removedAttachment){

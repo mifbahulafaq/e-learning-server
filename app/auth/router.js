@@ -8,6 +8,7 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const HASH_ROUND = 10;
 const { querySync } = require('../../database');
+const decodeToken = require('../../middlewares/decodeToken')
 
 const noEmptyMsg = 'This field must be filled';
 const lengthMsg = 'Must be greater than 255 or less than 5 characters long';
@@ -28,8 +29,8 @@ passport.use(new LocalStrategy({usernameField: 'email'}, local));
 router.post('/login',multer().none(), login);
 router.get('/oauth/google', google);
 router.post('/register',multerMidd(uploadPhoto).single('photo'),authValidator, register);
-router.delete('/logout', logout);
-router.get('/me', me);
+router.delete('/logout', decodeToken, logout);
+router.get('/me', decodeToken, me);
 
 module.exports = router;
 
