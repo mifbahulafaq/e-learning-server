@@ -6,7 +6,6 @@ const { querySync } = require('../../database')
 
 const { findUser, insertUser } = require('../user/service')
 
-const appError = require('../utils/appError')
 const sqlGet = require('../utils/sqlGet')
 
 module.exports = {
@@ -106,23 +105,25 @@ module.exports = {
 		}
 	},
 	
-	async signToken(user_id, obj = {}){
+	async signToken(user_id){
 		
 		const access_token = jwt.sign({user_id}, config.accessTokenSecretKey)
 		const refresh_token = jwt.sign({user_id}, config.refreshTokenSecretKey)
 		
-		if(obj.update){
-			
-			const sql_updateToken = {
-				text: 'UPDATE users SET token = token || ARRAY[$1] WHERE user_id = $2',
-				values: [access_token, user_id]
-			}
-			const { rowCount } = await querySync(sql_updateToken)
-			
-			return { access_token, refresh_token }
-		}
-		
 		return { access_token, refresh_token }
+	},
+	
+	async refreshToken(refreshToken){
+		
+		try{
+			
+			const { user_id } = jwt.verify(refreshToken, config.refreshTokenSecretKey)
+			
+			return jwt.sign({user_id}, config.accessTokenSecretKey)
+			
+		}catch(err){
+			throw new Error(err)
+		}
 	}
 	
 }

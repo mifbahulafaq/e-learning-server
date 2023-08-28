@@ -14,6 +14,7 @@ const app = express();
 const pool = require('./database');
 let config = require('./config');
 let port = config.port || 3000;
+const jwt = require('jsonwebtoken');
 //import middlewares
 const decodeToken = require('./middlewares/decodeToken');
 const privateStaticFile = require('./middlewares/privateStaticFile');
@@ -33,47 +34,56 @@ app.use(cors({
     credentials: true,
 	origin: "http://localhost:3000"
   }))
-  
-app.use('/auth',authRouter);
-app.use(decodeToken);
 
-app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
-app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
-app.use('/api', apiRouter);
 //router test
 
 //test
 const authService = require('./app/auth/service')
 app.use('/api/trying', async (req,res)=>{
 		
-		let user;
+		 let user = true;
 		
-		console.log(req.cookies)
+		 console.log(req.cookies)
 		
-		if(!user){
+		 if(!user){
 		
-			const accessTokenCookieOptions = {
-				expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
-				maxAge: config.accessTokenExpireIn * 60 * 1000,
-				httpOnly: true,
-				sameSite: 'lax'
-			}
-			const refreshTokenCookieOptions = {
-				expires: new Date(Date.now() + config.refreshTokenExpireIn * 60 * 1000),
-				maxAge: config.refreshTokenExpireIn * 60 * 1000,
-				httpOnly: true,
-				sameSite: 'lax'
-			}
-			res.cookie('access_token', 'adsdas', accessTokenCookieOptions)
-			res.cookie('refresh_token', 'dsaasd', refreshTokenCookieOptions)
-			res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
-		}
+			 const accessTokenCookieOptions = {
+				 expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
+				 maxAge: config.accessTokenExpireIn * 60 * 1000,
+				 httpOnly: true,
+				 sameSite: 'lax'
+			 }
+			 const refreshTokenCookieOptions = {
+				 expires: new Date(Date.now() + config.refreshTokenExpireIn * 60 * 1000),
+				 maxAge: config.refreshTokenExpireIn * 60 * 1000,
+				 httpOnly: true,
+				 sameSite: 'lax'
+			 }
+			 res.cookie('access_token', 'adsdas', accessTokenCookieOptions)
+			 res.cookie('refresh_token', 'dsaasd', refreshTokenCookieOptions)
+			 res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
+		 }
 		
-		return res.status(200).json({
-			message:'Logged in successfully',
-			token: 'asdads'
-		})
+		res.send()
+		// try{
+			// const decodedToken = await jwt.verify('dasad', config.refreshTokenSecretKey)
+			// console.log(decodedToken)
+			// return res.status(500).json({
+				// message:'Logged in successfully',
+				// token: 'asdads'
+			// })
+		// }catch(err){
+			// console.log(err)
+			// res.send()
+		// }
 })
+
+app.use('/auth',authRouter);
+app.use(decodeToken);
+
+app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
+app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
+app.use('/api', apiRouter);
 
 //Error handling router
 app.use((req,res,next)=>{
@@ -81,11 +91,15 @@ app.use((req,res,next)=>{
 })
 app.use((err,req,res,next)=>{
 	// set locals, only providing error in development
-	res.locals.message = err.message;
-	res.locals.error = req.app.get('env') === 'development' ? err : {};
+	//res.locals.message = err.message;
+	//res.locals.error = req.app.get('env') === 'development' ? err : {};
 	
-	res.status(err.status || 500);
-	res.render('error');
+	err.status = err.status || 500;
+	
+	return res.status(err.status).json({
+		status: err.status,
+		message: err.message
+	});
 	
 })
 

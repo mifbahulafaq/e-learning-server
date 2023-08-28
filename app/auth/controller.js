@@ -40,7 +40,7 @@ module.exports = {
 					
 					let {user_id, ...remains } = result.rows[0]
 					
-					const { access_token, refresh_token } = await authService.signToken(user_id, {update: true})
+					const { access_token, refresh_token } = await authService.signToken(user_id)
 					
 					return done(null,{ access_token, refresh_token })
 				}
@@ -74,7 +74,30 @@ module.exports = {
 			})
 		})(req,res,next)
 	},
-	async google (req,res,next){
+	async refresh(req, res, next){
+		
+		try{
+			
+			const refreshToken = req.cookies.refresh_token;
+			
+			const accessToken = await authService.refresh(refreshToken);
+			
+			res.cookie('access_token', accessToken, accessTokenCookieOptions)
+			res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
+			
+			res.json({
+				token: access_token
+			})
+			
+		}catch(err){
+		
+			next(appError("Couldn't refresh access token", 401));
+
+		}
+		
+		
+	},
+	async google (req, res, next){
 		
 		try{
 			

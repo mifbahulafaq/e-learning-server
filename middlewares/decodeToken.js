@@ -7,7 +7,7 @@ module.exports = async function(req, res, next){
 	try{
 	
 		const token = req.cookies.access_token
-		
+		console.log(token)
 		if(!token) return next(appError('Token expired',401))
 		
 		req.user = jwt.verify(token, config.accessTokenSecretKey);
