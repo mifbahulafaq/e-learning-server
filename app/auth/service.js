@@ -6,6 +6,8 @@ const { querySync } = require('../../database')
 
 const { findUser, insertUser } = require('../user/service')
 
+//utils
+const appError = require('../utils/appError');
 const sqlGet = require('../utils/sqlGet')
 
 module.exports = {
@@ -66,7 +68,6 @@ module.exports = {
 	async googleOauth(code){
 		
 		try{
-			console.log(this)
 			//use the code to get the id and access tokens
 			const { data: { id_token, access_token } } = await this.getGoogleOauthToken({ code })
 			
@@ -83,7 +84,7 @@ module.exports = {
 				
 				const { user_id } = sqlResult.rows[0]
 				
-				return await this.signToken(user_id, {update: true})
+				return await this.signToken(user_id)
 				
 			}else{
 				
@@ -107,8 +108,18 @@ module.exports = {
 	
 	async signToken(user_id){
 		
-		const access_token = jwt.sign({user_id}, config.accessTokenSecretKey)
-		const refresh_token = jwt.sign({user_id}, config.refreshTokenSecretKey)
+		const access_token = jwt.sign(
+			{user_id}, 
+			config.accessTokenSecretKey, 
+			{
+				expiresIn: config.accessTokenExpireIn * 60
+			}
+		)
+		const refresh_token = jwt.sign(
+			{user_id}, 
+			config.refreshTokenSecretKey, 
+			{expiresIn: config.refreshTokenExpireIn * 60}
+		)
 		
 		return { access_token, refresh_token }
 	},
@@ -117,12 +128,24 @@ module.exports = {
 		
 		try{
 			
-			const { user_id } = jwt.verify(refreshToken, config.refreshTokenSecretKey)
+			const { user_id } = jwt.verify(refreshToken, config.refreshTokenSecretKey);
+			
+			const user = await querySync({
+				text: 'SELECT * FROM users WHERE user_id = $1',
+				values: [user_id]
+			})
+			
+			if(!user.rowCount) throw appError("Couldn't refresh token", 200);
 			
 			return jwt.sign({user_id}, config.accessTokenSecretKey)
 			
 		}catch(err){
-			throw new Error(err)
+			
+			const jwtErrorNames = ['JsonWebTokenError', 'NotBeforeError', 'TokenExpiredError'];
+			
+			if(jwtErrorNames.includes(err.name)) throw appError("Couldn't refresh token", 200);
+			
+			throw err
 		}
 	}
 	

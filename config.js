@@ -14,7 +14,7 @@ module.exports = {
 	accessTokenPublicKey: process.env.ACCESS_TOKEN_PUBLIC_KEY,
 	refreshTokenPrivateKey: process.env.REFRESH_TOKEN_PRIVATE_KEY,
 	refreshTokenPublicKey: process.env.REFRESH_TOKEN_PUBLIC_KEY,
-	accessTokenExpireIn: 58, //minute
+	accessTokenExpireIn: 1, //minute
 	refreshTokenExpireIn: 59,//minute
 	uploadPhoto: {
 		dest: path.resolve(__dirname, './public/photo'),

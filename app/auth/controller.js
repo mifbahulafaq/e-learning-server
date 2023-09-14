@@ -14,7 +14,9 @@ const userService = require('../user/service')
 //utils
 const appError = require('../utils/appError');
 
-//Cookie Options
+//SET COOKIE OPT 
+//note: you must also set the cookie expire on serverside storage (use jwt expire/dbms/redis), just in case if  client sets expire from browser  
+
 const accessTokenCookieOptions = {
 	expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
 	maxAge: config.accessTokenExpireIn * 60 * 1000,
@@ -42,47 +44,51 @@ module.exports = {
 					
 					const { access_token, refresh_token } = await authService.signToken(user_id)
 					
-					return done(null,{ access_token, refresh_token })
+					return done(null,{ access_token, refresh_token }, {message:'Logged in successfully'})
 				}
 			}
 			
-			done(null,{},{message:'Incorrect email or password'})
+			done(null, {}, { message: "Incorect email or password"})
+			
 		}catch(err){
-			done(err,{})
+			done(err)
 		}
 	},
 	
 	async login (req,res,next){
 		passport.authenticate('local',(err, token, info)=>{
 			
-			if(err) return next(err)
+			if(err) return next(err);
 			
-			const { access_token, refresh_token } = token
+			const { access_token, refresh_token } = token;
 			
-			if(!access_token) return res.json({
-				error: 1,
-				message: info.message
-			})
+			if(!access_token){
+				return res.json({
+					error: 1,
+					message: info.message
+				})
+			}
 			
 			res.cookie('access_token', access_token, accessTokenCookieOptions)
 			res.cookie('refresh_token', refresh_token, refreshTokenCookieOptions)
 			res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
 			
 			res.json({
-				message:'Logged in successfully',
+				message: info.message,
 				token: access_token
 			})
 		})(req,res,next)
 	},
+	
 	async refresh(req, res, next){
 		
 		try{
 			
 			const refreshToken = req.cookies.refresh_token;
 			
-			const accessToken = await authService.refresh(refreshToken);
+			const access_token = await authService.refreshToken(refreshToken);
 			
-			res.cookie('access_token', accessToken, accessTokenCookieOptions)
+			res.cookie('access_token', access_token, accessTokenCookieOptions)
 			res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
 			
 			res.json({
@@ -90,9 +96,8 @@ module.exports = {
 			})
 			
 		}catch(err){
-		
-			next(appError("Couldn't refresh access token", 401));
-
+console.log(err)
+			next(err);
 		}
 		
 		
@@ -104,7 +109,7 @@ module.exports = {
 			//get code from the query string
 			const code = req.query.code
 
-			if(!code) return next(appError('Authorization code not provided!', 401))
+			if(!code) return next(appError('Authorization code not provided!'))
 				
 			const { refresh_token, access_token } = await authService.googleOauth(code)
 			
@@ -156,28 +161,14 @@ module.exports = {
 	},
 	
 	async logout (req,res, next){
-		const token = false// = getToken(req);
-		const query = {
-			text:'UPDATE users SET token = ARRAY_REMOVE(token, $1) WHERE $1 = ANY(token)',
-			values: [token]
-		}
 		
-		try{	
-			const result = await querySync(query);
-			
-			if(!result.rowCount || !token){
-				return res.json({
-					error: 1,
-					message: 'User not found'
-				})
-			}
-			res.json({
-				 message: "logout is successful"
-			})
-			
-		}catch(err){
-			next(err)
-		}
+		res.cookie('access_token', '', { maxAge: 1 });
+		res.cookie('refresh_token', '', { maxAge: 1 });
+		res.cookie('logged_in', '', { maxAge: 1 });
+		
+		res.json({
+			 message: "logout is successful"
+		})
 	},
 	
 	async me(req,res,next){

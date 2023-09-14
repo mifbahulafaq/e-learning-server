@@ -39,43 +39,40 @@ app.use(cors({
 
 //test
 const authService = require('./app/auth/service')
-app.use('/api/trying', async (req,res)=>{
+app.use('/api/get-token', async (req,res, next)=>{
+	
+	const accessTokenCookieOptions = {
+		expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
+		maxAge: config.accessTokenExpireIn * 60 * 1000,
+		httpOnly: true,
+		sameSite: 'lax'
+	}
+	const refreshTokenCookieOptions = {
+		expires: new Date(Date.now() + config.refreshTokenExpireIn * 60 * 1000),
+		maxAge: config.refreshTokenExpireIn * 60 * 1000,
+		httpOnly: true,
+		sameSite: 'lax'
+	}
+	
+	try{
+		const { access_token, refresh_token } = await authService.signToken(44);
 		
-		 let user = true;
-		
-		 console.log(req.cookies)
-		
-		 if(!user){
-		
-			 const accessTokenCookieOptions = {
-				 expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
-				 maxAge: config.accessTokenExpireIn * 60 * 1000,
-				 httpOnly: true,
-				 sameSite: 'lax'
-			 }
-			 const refreshTokenCookieOptions = {
-				 expires: new Date(Date.now() + config.refreshTokenExpireIn * 60 * 1000),
-				 maxAge: config.refreshTokenExpireIn * 60 * 1000,
-				 httpOnly: true,
-				 sameSite: 'lax'
-			 }
-			 res.cookie('access_token', 'adsdas', accessTokenCookieOptions)
-			 res.cookie('refresh_token', 'dsaasd', refreshTokenCookieOptions)
-			 res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
-		 }
-		
-		res.send()
-		// try{
-			// const decodedToken = await jwt.verify('dasad', config.refreshTokenSecretKey)
-			// console.log(decodedToken)
-			// return res.status(500).json({
-				// message:'Logged in successfully',
-				// token: 'asdads'
-			// })
-		// }catch(err){
-			// console.log(err)
-			// res.send()
-		// }
+		res.cookie('access_token', access_token, accessTokenCookieOptions)
+		res.cookie('refresh_token', refresh_token, refreshTokenCookieOptions)
+		res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
+			
+		res.json({
+			message: 'Get token is successful',
+			token: access_token
+		})
+	}catch(err){
+		next(err)
+	}
+	
+})
+
+app.use('/api/test', decodeToken, (req, res, next)=>{
+	res.send('testing successfully')
 })
 
 app.use('/auth',authRouter);
@@ -98,6 +95,7 @@ app.use((err,req,res,next)=>{
 	
 	return res.status(err.status).json({
 		status: err.status,
+		error: 1,
 		message: err.message
 	});
 	
