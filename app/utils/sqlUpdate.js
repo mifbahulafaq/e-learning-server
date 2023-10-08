@@ -2,9 +2,12 @@ module.exports = function(where, table, data){
 	
 	let sqlText = '';
 	let sqlValues = [];
-	const keyOfWhere = Object.keys(where)[0]
-	const keysOfData = Object.keys(data)
+	let whereText = '';
+	let whereValues = [];
+	const keyOfWhere = Object.keys(where);
+	const keysOfData = Object.keys(data);
 	
+	//set data
 	for (let key in data){
 		
 		if(data[key]){
@@ -19,8 +22,20 @@ module.exports = function(where, table, data){
 		sqlText += key === keysOfData[keysOfData.length-1]?'':', ';
 	}
 	
+	//set where
+	keyOfWhere.forEach((e,i)=>{
+		
+		if(i == 0) {
+			whereText += `WHERE ${e} = $${sqlValues.length + i + 1}`;
+		}else{
+			whereText += ` AND ${e} = $${sqlValues.length + i + 1}`;
+		}
+		
+		whereValues.push(where[e])
+	})
+	
 	return {
-		text: `UPDATE ${table} SET ${sqlText} WHERE ${keyOfWhere}=$${sqlValues.length+1} RETURNING *`,
-		values: [...sqlValues,  parseInt(where[keyOfWhere]) || undefined]
+		text: `UPDATE ${table} SET ${sqlText} ${whereText} RETURNING *`,
+		values: [...sqlValues,  ...whereValues]
 	}
 }

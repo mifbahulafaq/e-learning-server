@@ -7,6 +7,7 @@ const config = require('../../config')
 const path = require('path')
 
 const userService = require('./service')
+const authService = require('../auth/service')
 
 
 module.exports = {

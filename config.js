@@ -7,6 +7,9 @@ module.exports = {
 	serviceName : process.env.SERVICE_NAME,
 	rootPath: path.resolve(__dirname),
 
+	keyOfCipher:  process.env.KEY_OF_CIPHER,
+	ivOfCipher:  process.env.IV_OF_CIPHER,
+	
 	accessTokenSecretKey:  process.env.ACCESS_TOKEN_SECRET_KEY,
 	refreshTokenSecretKey:  process.env.REFRESH_TOKEN_SECRET_KEY,
 	
@@ -35,5 +38,13 @@ module.exports = {
 	
 	googleClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
 	googleClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
-	googleRedirect: process.env.GOOGLE_OAUTH_REDIRECT
+	googleRedirect: process.env.GOOGLE_OAUTH_REDIRECT,
+	
+	//transporter config
+	transporterService: process.env.TRANSPORTER_SERVICE,
+	transporterHost: process.env.TRANSPORTER_HOST,
+	transporterPort: process.env.TRANSPORTER_PORT,
+	transporterSecure: process.env.TRANSPORTER_SECURE,
+	transporterPass: process.env.TRANSPORTER_PASS,
+	transporterUser: process.env.SERVICE_EMAIL,
 }

@@ -96,7 +96,7 @@ module.exports = {
 			})
 			
 		}catch(err){
-console.log(err)
+			console.log(err)
 			next(err);
 		}
 		
@@ -127,17 +127,11 @@ console.log(err)
 	},
 	
 	async register(req,res, next){
-		const errInsert = validationResult(req);
-		let {name, gender, email, password} = req.body;
-		const photo = req.file? req.file.filename : null;
 		
-		const query = {
-			text: 'INSERT INTO users(name, gender, email, password, photo) VALUES($1, $2, $3, $4, $5) RETURNING *',
-			values: [name, gender, email, password, photo]
-		}
+		const errInsert = validationResult(req);
 		
 		if(!errInsert.isEmpty()){
-			if(req.file) removeFiles(req.file);
+			if(req.file) removeFiles([req.file]);
 			
 			return res.json({
 				error: 1,
@@ -145,19 +139,39 @@ console.log(err)
 			})
 		}
 		
-		queryAsync(query,(err,result)=>{
-			if(err){
-				if(req.file) removeFiles(req.file);
-				return next(err);
-			}
+		try{
 			
-			({password, token, ...rest} = result.rows[0]);
+			let {name, gender, email, password} = req.body;
+			const photo = req.file? req.file.filename : null;
+			
+			await authService.register({name, gender, email: email.toLowerCase(), password, photo})
 			
 			res.json({
-				message: 'Register is successful',
-				data: rest
+				message: "An email has been sent. Please check your email address."
 			})
-		})
+			
+		}catch(err){
+			next(err)
+		}
+		
+		
+	},
+	
+	async verifyEmail(req, res, next){
+		
+		try{
+			console.log(req.query)
+			const userData = await authService.verifyEmail(req.query);
+		
+			return res.json({
+				message: 'Verifying email is succeed',
+				data: userData
+			})
+		}catch(err){
+			
+			next(err)
+		}
+		
 	},
 	
 	async logout (req,res, next){

@@ -2,7 +2,8 @@
 
 //end test
 
-
+// const { Buffer } = require('buffer');
+// console.log(Buffer.from('sad'))
 const http = require('http');
 const path = require('path');
 const createError = require('http-errors');
@@ -11,10 +12,10 @@ const logger = require('morgan');
 const cors = require('cors');
 const cookieParser = require('cookie-parser')
 const app = express();
-const pool = require('./database');
 let config = require('./config');
-let port = config.port || 3000;
+let port = config.port || 6000;
 const jwt = require('jsonwebtoken');
+
 //import middlewares
 const decodeToken = require('./middlewares/decodeToken');
 const privateStaticFile = require('./middlewares/privateStaticFile');
@@ -71,15 +72,31 @@ app.use('/api/get-token', async (req,res, next)=>{
 	
 })
 
-app.use('/api/test', decodeToken, (req, res, next)=>{
-	res.send('testing successfully')
+const cipher = require('./app/utils/cipher');
+const sqlUpdate = require('./app/utils/sqlUpdate');
+const userService = require('./app/user/service');
+
+app.use('/api/test', async (req, res, next)=>{
+	
+	try{
+		//const dencryptedData = await decipher('vz8cF+xFSKChmeKdM7BdI29uqG5mn6vTODaQXgXGheM=');
+		const users = await userService.findUser({verified: false, email: 'mifbahulafaq@gmail.com'});
+		console.log(users)
+		res.send('testing')
+	}catch(err){
+		console.log(err)
+		res.send('err')
+	}
+	
+	
+	
 })
 
 app.use('/auth',authRouter);
-app.use(decodeToken);
-
 app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
 app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
+
+app.use(decodeToken);
 app.use('/api', apiRouter);
 
 //Error handling router

@@ -9,7 +9,7 @@ const appError = require('../utils/appError')
 
 module.exports = {
 	
-	async insertUser(data){
+	async insertUser(data, obj = { } ){
 		
 		const keysOfData = Object.keys(data)
 		
@@ -19,8 +19,10 @@ module.exports = {
 		const sqlValues = keysOfData.map((e,i)=>`$${i+1}`)
 		const valArr = keysOfData.map((e,i)=>data[e])
 		
+		const returning = obj?.return? 'returning *': '';
+		
 		 let sql_createUser = {
-			 text: `INSERT INTO users(${sqlColumn}) VALUES(${sqlValues}) `,
+			 text: `INSERT INTO users(${sqlColumn}) VALUES(${sqlValues}) ${returning}`,
 			 values: valArr
 		 }
 		 
@@ -40,7 +42,7 @@ module.exports = {
 			return await querySync(sql)
 			
 		}catch(err){
-			throw appError(err)
+			throw err
 		}
 	},
 	
@@ -53,7 +55,7 @@ module.exports = {
 		try{
 			return await querySync(sql_updatePwd)
 		}catch(err){
-			throw new Error(err)
+			throw err
 		}
 	},
 	
@@ -62,38 +64,39 @@ module.exports = {
 		try{
 			//get single data to delete photo
 			
-			const sqlGetPhoto = {
-				text: "SELECT photo FROM users WHERE user_id = $1",
-				values: [where.user_id]
+			let userPhoto;
+			
+			if(data.photo){
+
+				const sqlGetPhoto = {
+					text: "SELECT photo FROM users WHERE user_id = $1",
+					values: [where.user_id]
+				}
+				const {rows: userData } = await querySync(sqlGetPhoto)
+				let userPhoto = userData[0]?.photo || undefined
+				
 			}
-			const {rows: userData } = await querySync(sqlGetPhoto)
-			let userPhoto = userData[0]?.photo || undefined
 			
 			//updating
 			const sql = sqlUpdate(where, 'users', data)
+				
+			const resultUpdate = await querySync(sql)
 			
-			try{
-				
-				const resultUpdate = await querySync(sql)
-				
-				if(resultUpdate.rowCount && data.photo){
-					if(userPhoto){
-						userPhoto = [{ path: path.join(config.rootPath, `public/photo/${userPhoto}`)}]
-						removeFiles(userPhoto)
-					}
+			if(resultUpdate.rowCount){
+				if(userPhoto){
+					userPhoto = [{ path: path.join(config.rootPath, `public/photo/${userPhoto}`)}]
+					removeFiles(userPhoto)
 				}
-				
-				const { password, token, ...remains} = resultUpdate.rows[0]
-				return remains
-				
-			}catch(err){
-				
-				removeFiles([{ path: path.join(config.rootPath, `public/photo/${data.photo}`)}])
-				throw new Error(err)
 			}
+				
+			const { password, token, ...remains} = resultUpdate.rows[0]
+			return remains
 			
 		}catch(err){
-			throw new Error(err)
+			
+			if(data.photo) removeFiles([{ path: path.join(config.rootPath, `public/photo/${data.photo}`)}]);
+			
+			throw err;
 		}
 	}
 	

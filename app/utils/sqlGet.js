@@ -1,16 +1,22 @@
 module.exports = (table, where = {})=>{
 	
-	const keyOfWhere = Object.keys(where)[0]
+	const keyOfWhere = Object.keys(where)
 	
 	let sql =  {
 		text: `SELECT * FROM ${table}`,
 		values: []
 	}
 	
-	if(keyOfWhere){
-		sql.text += ` WHERE ${keyOfWhere} = $1`
-		sql.values.push(where[keyOfWhere])
-	}
+	keyOfWhere.forEach((e,i)=>{
+		
+		if(i == 0) {
+			sql.text += ` WHERE ${e} = $${i+1}`;
+		}else{
+			sql.text += ` AND ${e} = $${i+1}`;
+		}
+		
+		sql.values.push(where[e])
+	})
 	
 	return sql
 }
