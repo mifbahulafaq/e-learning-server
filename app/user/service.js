@@ -67,12 +67,9 @@ module.exports = {
 			let userPhoto;
 			
 			if(data.photo){
-
-				const sqlGetPhoto = {
-					text: "SELECT photo FROM users WHERE user_id = $1",
-					values: [where.user_id]
-				}
-				const {rows: userData } = await querySync(sqlGetPhoto)
+				
+				const { rows, userData } = await this.findUser({...where, photo: data.photo})
+				
 				let userPhoto = userData[0]?.photo || undefined
 				
 			}
@@ -89,8 +86,7 @@ module.exports = {
 				}
 			}
 				
-			const { password, token, ...remains} = resultUpdate.rows[0]
-			return remains
+			return resultUpdate
 			
 		}catch(err){
 			

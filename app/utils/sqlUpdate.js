@@ -10,7 +10,7 @@ module.exports = function(where, table, data){
 	//set data
 	for (let key in data){
 		
-		if(data[key]){
+		if(data[key] || data[key] === null){
 			
 			sqlText += `${key} = $${sqlValues.length+1}`
 			sqlValues.push(data[key])

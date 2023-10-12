@@ -23,14 +23,36 @@ const authValidator = [
 	.customSanitizer(pwdSanitizer),
 ]
 
-const { register, login, refresh, google, logout, local, me, verifyEmail} = require('./controller');
+const { 
+	register, 
+	login, 
+	refresh, 
+	google, 
+	logout, 
+	local, 
+	me, 
+	verifyEmail,
+	forgotPassword,
+	resetPassword
+} = require('./controller');
 
 passport.use(new LocalStrategy({usernameField: 'email'}, local));
+
 router.post('/login',multer().none(), login);
 router.get('/refresh', refresh);
 router.get('/oauth/google', google);
 router.post('/register',multerMidd(uploadPhoto).single('photo'),authValidator, register);
-router.get('/verify', verifyEmail);
+router.get('/verify', decodeToken, verifyEmail);
+//reset password
+router.post('/forgot-password', multer().none(), forgotPassword);
+router.post(
+	'/reset-password', 
+	decodeToken, 
+	multer().none(), 
+	body('new_password').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg).customSanitizer(pwdSanitizer),
+	resetPassword
+);
+
 router.delete('/logout', decodeToken, logout);
 router.get('/me', decodeToken, me);
 

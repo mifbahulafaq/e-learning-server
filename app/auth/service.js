@@ -1,11 +1,12 @@
 const qs = require('qs')
 const jwt = require('jsonwebtoken')
 const axios = require('axios')
-const nodemailer = require('nodemailer');
 const config = require('../../config')
 const { querySync } = require('../../database')
 
-const userService = require('../user/service')
+//services
+const userService = require('../user/service');
+const emailService = require('../../services/email');
 
 //utils
 const appError = require('../utils/appError');
@@ -45,55 +46,26 @@ module.exports = {
 		}
 		
 	},
-	async sendEmail(message){
-		
-		try{
-			
-			const transporter = nodemailer.createTransport({
-				service: config.transporterService,
-				host: config.transporterHost,
-				port: config.transporterHost,
-				secure: config.transporterSecure, // upgrade later with STARTTLS
-				auth: {
-					user: config.transporterUser,
-					pass: config.transporterPass
-				}
-			});
-			
-			return transporter.sendMail(message)
-			
-		}catch(err){
-
-			throw err
-		}
-		
-	},
 	
-	async register(payload){
-		
-		const errorMessage = 'Registration failed';
-		const errorStatus = 200;
+	async sendEmailVerification({ user_id, email}){
 		
 		try{
 			
-			const insertingResult = await userService.insertUser(payload, { return : true });
-			
-			const user = insertingResult.rows[0];
-			
-			if(!user) throw appError(errorMessage, errorStatus); 
-			
-			const { user_id, email } = user;
-			
+			//create token
 			const stringData = JSON.stringify([ user_id, email ]);
+			let { encrypted: token, iv} = await cipher(stringData);
 			
-			let encryptedString = await cipher(stringData);
+			//store token to verify email;
+			const updateSql = {
+				text: 'UPDATE users SET token = ARRAY[[$1, $2]] WHERE user_id = $3',
+				values: [token, iv, user_id]
+			}
+			await querySync(updateSql);
 			
-			
-			
-			encryptedString = encodeURIComponent(encryptedString);
-			
-			const link = `${config.client_url}/verify?t=${encryptedString}`;
-			
+			token = encodeURIComponent(token);
+				
+			const link = `${config.client_url}/verify?t=${token}`;
+				
 			const message = {
 				from: `"${config.serviceName}" <${config.serviceEmail}>`,
 				to: email,
@@ -105,51 +77,123 @@ module.exports = {
 				`
 			}
 			
-			const emailSending = await this.sendEmail(message);
-			
-			if(!emailSending.accepted?.length) throw appError(errorMessage, errorStatus);
+			await emailService.sendEmail(message);
 			
 		}catch(err){
-
-			if(err.rejected?.length) throw appError(errorMessage, errorStatus); 
+			
+			throw err
+		}
+	},
+	
+	async register(payload){
+		
+		const errorMessage = 'Registration failed';
+		
+		try{
+			
+			//add user
+			const insertingResult = await userService.insertUser(payload, { return : true });
+			
+			const user = insertingResult.rows[0];
+			
+			if(!user) throw appError(errorMessage, 200); 
+			
+			//create token
+			const { user_id, email } = user;
+			
+			//start sending a email verification
+			await this.sendEmailVerification({ user_id, email })
+			
+			
+		}catch(err){ 
 			
 			throw err
 			
 		}
 	},
-	async verifyEmail(query){
+	
+	async forgotPassword(email){
+		
+		try{
+			const findingEmail = await userService.findUser({ email });
+			
+			if(!findingEmail.rowCount) throw appError('Email not found', 200);
+			
+			let {password, token: t, ...dataRemains } = findingEmail.rows[0];
+			
+			//create token
+			const stringData = JSON.stringify([ dataRemains.user_id, dataRemains.email ]);
+			let { encrypted: token, iv} = await cipher(stringData);
+			
+			//store token to verify email;
+			const updateSql = {
+				text: 'UPDATE users SET token = token || ARRAY[[$1, $2]] WHERE user_id = $3',
+				values: [token, iv, dataRemains.user_id]
+			}
+			await querySync(updateSql);
+			token = encodeURIComponent(token);
+			
+			const link = `${config.client_url}/reset-password?t=${token}`;
+			
+			const message = {
+				from: `"${config.serviceName}" <${config.serviceEmail}>`,
+				to: email,
+				subject: 'Reset Password',
+				text: 'text',
+				html: `
+				<a href=${link} >${link}</a>
+				`
+			}
+			
+			await emailService.sendEmail(message)
+			
+			return dataRemains;
+			
+		}catch(err){
+			throw err
+		}
+		
+	},
+	
+	async resetPassword(user_id, pwd){
+		
+		try{
+			const result = await userService.updateUser({user_id}, {password: pwd, token: null});
+			
+			if(!result.rowCount) throw appError('Failed to reset password', 200);
+			
+			const { token, password, ...dataRemains} = result.rows[0]
+			return dataRemains;
+		}catch(err){
+			throw err
+		}
+		
+	},
+	
+	async verifyEmail(user){
 		
 		const errorMessage = "Couldn't verify your email";
 		const errorStatus = 200;
 		
 		try{
-			let { t: token } = query;
-			console.log(token)
-			if(!token) throw appError(errorMessage, errorStatus);
 			
-			token = decodeURIComponent(token)
+			const verifiedEmail = await userService.findUser({ verified: true, user_id: user?.user_id});
 			
-			const stringData = await decipher(token);
+			if(verifiedEmail.rowCount) throw appError('Email has been verified', errorStatus);
 			
-			let [ user_id, email ] = JSON.parse(stringData);
-			user_id = parseInt(user_id) || undefined;
+			const updateData = { verified: 't', provider: 'Google', token: null};
 			
-			const sqlResult = await userService.findUser({ user_id, email, verified: true });
+			const userData = await userService.updateUser({user_id: user?.user_id, verified: false}, updateData)
 			
-			if(sqlResult.rowCount) throw appError('Email has been verified', errorStatus);
+			if(!userData.rowCount) throw appError(errorMessage, errorStatus);
 			
-			const where = {user_id, email, verified: false};
-			const data = { verified: 't', provider: 'Google' };
+			const { password, token: t, ...remains } = userData.rows[0];
 			
-			const userData = await userService.updateUser(where, data);
-			
-			if(!userData) throw appError(errorMessage, errorStatus);
-			
-			return userData;
+			return remains;
 			
 			
 		}catch(err){
-			
+			console.log(err)
 			if(err.status === 200) throw err;
 			
 			throw appError(errorMessage, errorStatus);

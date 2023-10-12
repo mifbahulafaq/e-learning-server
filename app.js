@@ -78,15 +78,13 @@ const userService = require('./app/user/service');
 
 app.use('/api/test', async (req, res, next)=>{
 	
-	try{
-		//const dencryptedData = await decipher('vz8cF+xFSKChmeKdM7BdI29uqG5mn6vTODaQXgXGheM=');
-		const users = await userService.findUser({verified: false, email: 'mifbahulafaq@gmail.com'});
-		console.log(users)
+	
+		//const stringData = JSON.stringify([ 87, 'mifbahulafaq@gmail.com' ]);
+		//const cipherData = await cipher(stringData);
+		
+		console.log(jwt.verify('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c','your-256-bit-secre'))
 		res.send('testing')
-	}catch(err){
-		console.log(err)
-		res.send('err')
-	}
+	
 	
 	
 	

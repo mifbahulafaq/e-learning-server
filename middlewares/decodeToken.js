@@ -1,37 +1,61 @@
 const { querySync } = require('../database');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const appError = require('../app/utils/appError')
+
+const userService = require('../app/user/service');
+
+const appError = require('../app/utils/appError');
+const decipher = require('../app/utils/decipher');
 
 module.exports = async function(req, res, next){
 	
+	const tokenMessage = 'Invalid token or token expired';
+	const errorStatus = 200;
+	
 	try{
 	
-		const token = req.cookies.access_token;
-		
-		if(!token){
-			return res.json({
-				error: 1,
-				message: "You aren't logged in"
-			})
+		if(req.cookies.access_token){
+			
+			let token = req.cookies.access_token;
+			
+			req.user = jwt.verify(token, config.accessTokenSecretKey);
+			
+			const user = await userService.findUser({user_id: req.user.user_id});
+			
+			if(!user.rowCount) return next(appError(tokenMessage, errorStatus));
+			
+			return next();
 		}
 		
-		req.user = jwt.verify(token, config.accessTokenSecretKey);
+		if(req.query.t){
+			
+			let decodedToken = decodeURIComponent(req.query.t);
+			
+			const findingToken = await querySync({
+				text: "SELECT * FROM users WHERE $1 = ANY(token)",
+				values: [decodedToken]
+			})
+			
+			if(!findingToken.rowCount) throw appError(tokenMessage, errorStatus);
+			
+			const [token, iv] = findingToken.rows[0].token[0];
+			
+			const stringData = await decipher(token, iv);
+			let [ user_id, email ] = JSON.parse(stringData);
+			
+			req.user = { user_id };
+			
+			return next();
+
+		}
 		
-		const user = await querySync({
-			text: 'SELECT * FROM users WHERE user_id = $1',
-			values: [req.user.user_id]
-		})
-		
-		if(!user.rowCount) return next(appError("User with that token isn't exist", 200));
-		
-		next();
+		next(appError("You aren't logged in", 200));
 		
 	}catch(err){
 		
 		const jwtErrorNames = ['JsonWebTokenError', 'NotBeforeError', 'TokenExpiredError'];
 		
-		if(jwtErrorNames.includes(err.name)) return next(appError(err.message, 200));
+		if(jwtErrorNames.includes(err.name)) return next(appError(tokenMessage, errorStatus));
 		
 		next(err);
 	}

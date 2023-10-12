@@ -14,9 +14,6 @@ const userService = require('../user/service')
 //utils
 const appError = require('../utils/appError');
 
-//SET COOKIE OPT 
-//note: you must also set the cookie expire on serverside storage (use jwt expire/dbms/redis), just in case if  client sets expire from browser  
-
 const accessTokenCookieOptions = {
 	expires: new Date(Date.now() + config.accessTokenExpireIn * 60 * 1000),
 	maxAge: config.accessTokenExpireIn * 60 * 1000,
@@ -32,15 +29,23 @@ const refreshTokenCookieOptions = {
 
 module.exports = {
 	
-	async local(email, password, done){
+	async local(body_email, body_pass, done){
 		
 		try{
-			let result = await userService.findUser({ email })
+			let result = await userService.findUser({ email: body_email })
 			
 			if(result.rowCount){
-				if(bcrypt.compareSync(password,result.rows[0].password)){
+				
+				const { user_id, email, password, verified } = result.rows[0];
+				
+				if(bcrypt.compareSync(body_pass, password)){
 					
-					let {user_id, ...remains } = result.rows[0]
+					if(!verified){
+						
+						await authService.sendEmailVerification({user_id, email})
+						
+						return done(null, {}, { message: "Email isn't verified yet. an email verification has been sent to your email"})
+					}
 					
 					const { access_token, refresh_token } = await authService.signToken(user_id)
 					
@@ -48,7 +53,7 @@ module.exports = {
 				}
 			}
 			
-			done(null, {}, { message: "Incorect email or password"})
+			done(appError("Incorect email or password", 200), {})
 			
 		}catch(err){
 			done(err)
@@ -56,28 +61,78 @@ module.exports = {
 	},
 	
 	async login (req,res,next){
-		passport.authenticate('local',(err, token, info)=>{
+		passport.authenticate('local',(err, data, info)=>{
 			
 			if(err) return next(err);
 			
-			const { access_token, refresh_token } = token;
+			const { access_token, refresh_token } = data;
 			
-			if(!access_token){
-				return res.json({
-					error: 1,
+			if(access_token){
+				
+				const {expires, maxAge, ...remainsOpt} = refreshTokenCookieOptions
+				
+				res.cookie(
+					'refresh_token', 
+					refresh_token, 
+					req.body.keep? {...refreshTokenCookieOptions}: {...remainsOpt}
+				)
+				res.cookie('access_token', access_token, accessTokenCookieOptions)
+				res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
+				
+				res.json({
+					message: info.message,
+					token: access_token
+				})
+			}else{
+				
+				res.json({
 					message: info.message
 				})
 			}
+		})(req,res,next)
+	},
+	
+	async forgotPassword(req, res, next){
+		
+		try{
+			const { email } = req.body;
 			
-			res.cookie('access_token', access_token, accessTokenCookieOptions)
-			res.cookie('refresh_token', refresh_token, refreshTokenCookieOptions)
-			res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
+			const user = await  authService.forgotPassword(email);
 			
 			res.json({
-				message: info.message,
-				token: access_token
+				data: user,
+				message: 'an email has been sent'
 			})
-		})(req,res,next)
+			
+		}catch(err){
+			next(err)
+		}
+	},
+	async resetPassword(req, res, next){
+		
+		try{
+			const errInsert = validationResult(req);
+		
+			if(!errInsert.isEmpty()){
+				
+				return res.json({
+					error: 1,
+					field: errInsert.mapped()
+				})
+			}
+			
+			const { new_password } = req.body;
+			
+			const userData = await authService.resetPassword(req.user.user_id, new_password)
+			
+			res.json({
+				data: userData,
+				message: 'Password has benn changed'
+			})
+			
+		}catch(err){
+			next(err)
+		}
 	},
 	
 	async refresh(req, res, next){
@@ -151,6 +206,7 @@ module.exports = {
 			})
 			
 		}catch(err){
+			
 			next(err)
 		}
 		
@@ -160,8 +216,8 @@ module.exports = {
 	async verifyEmail(req, res, next){
 		
 		try{
-			console.log(req.query)
-			const userData = await authService.verifyEmail(req.query);
+			console.log(req.user)
+			const userData = await authService.verifyEmail(req.user);
 		
 			return res.json({
 				message: 'Verifying email is succeed',

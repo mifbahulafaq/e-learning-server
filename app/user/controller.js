@@ -5,6 +5,7 @@ const { validationResult } = require('express-validator')
 const removeFiles = require('../utils/removeFiles')
 const config = require('../../config')
 const path = require('path')
+const appError = require('../utils/appError')
 
 const userService = require('./service')
 const authService = require('../auth/service')
@@ -59,7 +60,12 @@ module.exports = {
 			const { name, email, gender, photo } = req.body
 			const updateData = { name, email, gender, photo}
 			
-			return res.json(await userService.updateUser({user_id}, updateData))
+			const result = await userService.updateUser({user_id}, updateData)
+			
+			if(!result.rowCount) return next(appError('Update user failed', 200))
+			
+			const { password, token, ...remains} = result.rows[0]
+			return res.json(remains)
 			
 		}catch(err){
 			

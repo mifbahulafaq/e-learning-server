@@ -8,7 +8,6 @@ module.exports = {
 	rootPath: path.resolve(__dirname),
 
 	keyOfCipher:  process.env.KEY_OF_CIPHER,
-	ivOfCipher:  process.env.IV_OF_CIPHER,
 	
 	accessTokenSecretKey:  process.env.ACCESS_TOKEN_SECRET_KEY,
 	refreshTokenSecretKey:  process.env.REFRESH_TOKEN_SECRET_KEY,
