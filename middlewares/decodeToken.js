@@ -55,7 +55,9 @@ module.exports = async function(req, res, next){
 		
 		const jwtErrorNames = ['JsonWebTokenError', 'NotBeforeError', 'TokenExpiredError'];
 		
-		if(jwtErrorNames.includes(err.name)) return next(appError(tokenMessage, errorStatus));
+		if(
+			jwtErrorNames.includes(err.name) || err.name === 'URIError'
+		) return next(appError(tokenMessage, errorStatus));
 		
 		next(err);
 	}

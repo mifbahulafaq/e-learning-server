@@ -29,7 +29,9 @@ module.exports = {
 		try{
 			
 			const userData = await userService.findUser({user_id})
-			return res.json(userData.rows[0])
+			const { token, password, ...dataRemains } = userData.rows[0];
+			
+			return res.json(dataRemains)
 			
 		}catch(err){
 			
