@@ -72,22 +72,24 @@ app.use('/api/get-token', async (req,res, next)=>{
 	
 })
 
-const cipher = require('./app/utils/cipher');
-const sqlUpdate = require('./app/utils/sqlUpdate');
-const userService = require('./app/user/service');
-
+const emailService = require('./services/email');
 app.use('/api/test', async (req, res, next)=>{
+	const message = {
+			from: `"${config.serviceName}" <${config.serviceEmail}>`,
+			to: 'u@g',
+			subject: 'Reset Password',
+			text: 'text',
+			html: `content`
+		}
 	
+	try{
+		const result = await emailService.sendEmail(message);
+		console.log(result)
+	}catch(err){
+		console.log(err)
+	}
 	
-		//const stringData = JSON.stringify([ 87, 'mifbahulafaq@gmail.com' ]);
-		//const cipherData = await cipher(stringData);
-		
-		console.log(jwt.verify('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c','your-256-bit-secre'))
-		res.send('testing')
-	
-	
-	
-	
+	res.send('test')
 })
 
 app.use('/auth',authRouter);

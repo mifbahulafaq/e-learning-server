@@ -206,7 +206,7 @@ module.exports = {
 			})
 			
 		}catch(err){
-			
+			console.log(err)
 			next(err)
 		}
 		
@@ -216,7 +216,7 @@ module.exports = {
 	async verifyEmail(req, res, next){
 		
 		try{
-			console.log(req.user)
+			
 			const userData = await authService.verifyEmail(req.user);
 		
 			return res.json({

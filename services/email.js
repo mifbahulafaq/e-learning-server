@@ -18,7 +18,11 @@ module.exports = {
 				}
 			});
 			
-			return transporter.sendMail(message)
+			const result = await transporter.sendMail(message);
+			
+			if(result.reject?.length) throw new Error('Email rejected');
+			
+			return result;
 			
 		}catch(err){
 

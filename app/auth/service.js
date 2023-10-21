@@ -236,7 +236,7 @@ module.exports = {
 			
 			//update user if user alredy exists or create new user
 			
-			const sqlResult = await userService.findUser({ email })
+			sqlResult = await userService.findUser({ email })
 			
 			if(sqlResult.rowCount){
 				
@@ -255,7 +255,7 @@ module.exports = {
 				
 				const { access_token, refresh_token } = await this.signToken(user_id)
 				
-				await userService.insertUser({user_id, name,verified: true, email, provider: 'Google', picture})
+				await userService.insertUser({user_id, name,verified: true, email, provider: 'Google', photo: picture})
 				
 				return { access_token, refresh_token }
 			}

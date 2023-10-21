@@ -2,7 +2,7 @@ const policyFor = require('../app/policy');
 const { subject } = require('@casl/ability');
 
 module.exports = function(req, res, next){
-	
+	console.log(req.user)
 	const policy = policyFor(req.user)
 	const subjectFile = subject('File', {user_id: parseInt(req.params?.user_id)})
 	
