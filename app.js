@@ -110,6 +110,8 @@ app.use((err,req,res,next)=>{
 	
 	err.status = err.status || 500;
 	
+	console.log(err)
+	
 	return res.status(err.status).json({
 		status: err.status,
 		error: 1,

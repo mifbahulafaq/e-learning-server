@@ -38,7 +38,7 @@ module.exports = {
 				
 				const { user_id, email, password, verified } = result.rows[0];
 				
-				if(bcrypt.compareSync(body_pass, password)){
+				if(bcrypt.compareSync(body_pass, password || '')){
 					
 					if(!verified){
 						
