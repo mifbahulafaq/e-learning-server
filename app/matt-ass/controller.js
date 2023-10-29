@@ -10,7 +10,7 @@ module.exports = {
 	/*-----------------get-------------------------*/
 	async getMattAss(req, res, next){
 		
-		let { by, status, aClass = "", skip, limit = 10} = req.query
+		let { by, status, class: aClass = "", skip, limit = 10} = req.query
 		
 		let filter = {
 			status: "",
@@ -41,10 +41,11 @@ module.exports = {
 			break;
 		}
 		
+		const number_of_answers = '(SELECT count(*) FROM ass_answers WHERE id_matt_ass = ma.id_matt_ass)'
 		try{
 			//get the main data and authorize
 			let sql_by_student = {
-				text: `SELECT ma.*, to_jsonb(ma.*) matter, to_jsonb(c.*) class FROM matt_ass ma
+				text: `SELECT ma.*, to_jsonb(m.*) matter, to_jsonb(c.*) class FROM matt_ass ma
 					   INNER JOIN matters m ON ma.id_matt = m.id_matter
 					   INNER JOIN classes c ON m.class = c.code_class
 					   WHERE c.code_class IN (SELECT class FROM class_students WHERE "user" = $1) ${filter.status} ${filter.class}
@@ -60,7 +61,7 @@ module.exports = {
 			}
 			
 			let sql_by_teacher = {
-				text: `SELECT ma.*, to_jsonb(ma.*) matter, to_jsonb(c.*) class FROM matt_ass ma
+				text: `SELECT ma.*, to_jsonb(m.*) matter, to_jsonb(c.*) class, ${number_of_answers} total_answers FROM matt_ass ma
 					   INNER JOIN matters m ON ma.id_matt = m.id_matter
 					   INNER JOIN classes c ON m.class = c.code_class
 					   WHERE c.teacher = $1 ${filter.class}
