@@ -2,6 +2,7 @@ const { querySync } = require('../../database');
 const { validationResult } = require('express-validator');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
+const isDate = require('../utils/isDate');
 
 module.exports = {
 	
@@ -84,36 +85,63 @@ module.exports = {
 				latest= 0,
 				day: df, 
 				time: tf,
-				limit: lim= 10
+				limit: lim= 100,
+				timeStart,
+				timeLimit
 			} = req.query
+			
 			df = parseInt(df)? df: currentDate.getDay()
+			
 			const tempDate = (new Date()).toDateString() 
 			const tempDateTime = new Date(tempDate +' '+tf)
-			tf = isNaN((new Date(tempDateTime)).getDate())? currentDate.toLocaleString('en-GB', {timeStyle: 'medium'}): tf
+			tf = isDate(tempDateTime)? currentDate.toLocaleString('en-GB', {timeStyle: 'medium'}): tf;
+			timeStart = isDate(timeStart)? timeStart: '';
+			timeLimit = isDate(timeLimit)? timeLimit: '';
 			
 			let value_of_obj = {code_class, lim}
-			if(latest) value_of_obj = {...value_of_obj, df, tf}
+			//if(latest) value_of_obj = {...value_of_obj, df, tf}
+			
+			//function to get index of obj
 			const indexOfObj = key=>Object.keys(value_of_obj).indexOf(key) + 1
 			
-			sql.values = Object.values(value_of_obj);
 			
-			//set SQL text and filter
+			//set SQL filter
 			order_type = order_type.toUpperCase()
 			let orderType = order_type === 'DESC' || order_type === 'ASC'? order_type: ''
-			const orderByDay = `
+			
+			/*const orderByDay = `
 				CASE WHEN CONCAT(day, '')::INTEGER < $${indexOfObj('df')} THEN (CONCAT(day, '')::INTEGER + 7) - $${indexOfObj('df')}
 					 WHEN CONCAT(day, '')::INTEGER > $${indexOfObj('df')} THEN CONCAT(day, '')::INTEGER - $${indexOfObj('df')}
 					 WHEN time < $${indexOfObj('tf')} THEN (CONCAT(day, '')::INTEGER + 7) - $${indexOfObj('df')}
 					 ELSE CONCAT(day, '')::INTEGER - $${indexOfObj('df')}
 				END`
-			// const orderByTime = `
-				// CASE WHEN CONCAT(day, '')::INTEGER != $${indexOfObj('df')} THEN CURRENT_DATE + time
-					 // WHEN time < $${indexOfObj('tf')} THEN (CURRENT_DATE + time) + '24 H'
-					 // ELSE CURRENT_DATE + time
-				// END
-			// `
-			latest = latest ? `ORDER BY ${orderByDay}, time ${orderType}`: ''
-			sql.text = `SELECT * FROM schedules WHERE code_class=$${indexOfObj('code_class')} ${latest} LIMIT $${indexOfObj('lim')}`;
+			 const orderByTime = `
+				 CASE WHEN CONCAT(day, '')::INTEGER != $${indexOfObj('df')} THEN CURRENT_DATE + time
+					  WHEN time < $${indexOfObj('tf')} THEN (CURRENT_DATE + time) + '24 H'
+					  ELSE CURRENT_DATE + time
+				 END
+			 `
+			 */
+			latest = latest ? `ORDER BY day, time ${orderType}`: '';
+			
+			const singleScheduleData = "(CURRENT_DATE + (CASE WHEN EXTRACT(DOW FROM CURRENT_DATE) > CONCAT(day, '')::INTEGER THEN (CONCAT(day, '')::INTEGER + 7) - EXTRACT(DOW FROM CURRENT_DATE) ELSE CONCAT(day, '')::INTEGER - EXTRACT(DOW FROM CURRENT_DATE) END)::INT) + time";
+			
+			const filterDate = {
+				timeStart: '',
+				timeLimit: ''
+			}
+			
+			if(timeStart){
+				value_of_obj = {...value_of_obj, timeStart}
+				filterDate.timeStart = `AND ${singleScheduleData} >= $${indexOfObj('timeStart')}`;
+			}
+			if(timeLimit && timeLimit){
+				value_of_obj = {...value_of_obj, timeLimit}
+				filterDate.timeLimit = `AND ${singleScheduleData} <= $${indexOfObj('timeLimit')}`;
+			}
+			
+			sql.text = `SELECT * FROM schedules WHERE code_class=$${indexOfObj('code_class')} ${filterDate.timeStart} ${filterDate.timeLimit} ${latest} LIMIT $${indexOfObj('lim')}`;
+			sql.values = Object.values(value_of_obj);
 			
 			result = await querySync(sql);
 			return res.json({data: result.rows});
