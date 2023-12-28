@@ -47,7 +47,7 @@ module.exports = {
 			let readSql = {
 				text: `SELECT ac.*, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user", to_jsonb(ea.*) exam_answer FROM exam_answer_comments ac
 					   INNER JOIN "users" u ON ac.user_id = u.user_id 
-					   INNER JOIN exam_answers ea ON ac.id_exm_ans = ea.id_exm_ans WHERE ac.id_exm_ans = $1`,
+					   INNER JOIN exam_answers ea ON ac.id_exm_ans = ea.id_exm_ans WHERE ac.id_exm_ans = $1 ORDER BY ac.date`,
 				values: [id_exm_ans || undefined]
 			}
 			

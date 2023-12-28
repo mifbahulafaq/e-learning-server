@@ -68,8 +68,7 @@ module.exports = {
 			
 			if(data.photo){
 				
-				const { rows: userData } = await this.findUser({...where, photo: data.photo})
-				
+				const { rows: userData } = await this.findUser(where)
 				userPhoto = userData[0]?.photo || undefined
 				
 			}
