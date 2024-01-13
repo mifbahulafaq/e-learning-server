@@ -76,17 +76,17 @@ const emailService = require('./services/email');
 app.use('/api/test', async (req, res, next)=>{
 	const message = {
 			from: `"${config.serviceName}" <${config.serviceEmail}>`,
-			to: 'u@g',
+			to: 'mifbahulafaq@outlook.com',
 			subject: 'Reset Password',
-			text: 'text',
-			html: `content`
+			text: 'HALO',
+			html: `haloo`
 		}
 	
 	try{
 		const result = await emailService.sendEmail(message);
-		console.log(result)
+		
 	}catch(err){
-		console.log(err)
+		return next(err)
 	}
 	
 	res.send('test')
@@ -107,10 +107,8 @@ app.use((err,req,res,next)=>{
 	// set locals, only providing error in development
 	//res.locals.message = err.message;
 	//res.locals.error = req.app.get('env') === 'development' ? err : {};
-	
-	err.status = err.status || 500;
-	
 	console.log(err)
+	err.status = err.status || 500;
 	
 	return res.status(err.status).json({
 		status: err.status,

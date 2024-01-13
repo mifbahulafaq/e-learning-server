@@ -49,7 +49,7 @@ module.exports = {
 					   INNER JOIN matters m ON ma.id_matt = m.id_matter
 					   INNER JOIN classes c ON m.class = c.code_class
 					   WHERE c.code_class IN (SELECT class FROM class_students WHERE "user" = $1) ${filter.status} ${filter.class}
-					   LIMIT $2 OFFSET $3`,
+					   ORDER BY ma.date DESC LIMIT $2 OFFSET $3`,
 				values: [req.user.user_id, limit, skip]
 			}
 			let sql_student_count = {
@@ -65,7 +65,7 @@ module.exports = {
 					   INNER JOIN matters m ON ma.id_matt = m.id_matter
 					   INNER JOIN classes c ON m.class = c.code_class
 					   WHERE c.teacher = $1 ${filter.class}
-					   LIMIT $2 OFFSET $3`,
+					   ORDER BY ma.date DESC LIMIT $2 OFFSET $3`,
 				values: [req.user.user_id, limit, skip]
 			}
 			let sql_teacher_count = {

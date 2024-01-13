@@ -193,7 +193,7 @@ module.exports = {
 			
 			
 		}catch(err){
-			console.log(err)
+			
 			if(err.status === 200) throw err;
 			
 			throw appError(errorMessage, errorStatus);

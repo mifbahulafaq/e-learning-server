@@ -5,6 +5,7 @@ module.exports = {
 	port : process.env.PORT,
 	client_url : process.env.CLIENT_URL,
 	serviceName : process.env.SERVICE_NAME,
+	serviceEmail : process.env.SERVICE_EMAIL,
 	rootPath: path.resolve(__dirname),
 
 	keyOfCipher:  process.env.KEY_OF_CIPHER,
@@ -42,8 +43,8 @@ module.exports = {
 	//transporter config
 	transporterService: process.env.TRANSPORTER_SERVICE,
 	transporterHost: process.env.TRANSPORTER_HOST,
-	transporterPort: process.env.TRANSPORTER_PORT,
-	transporterSecure: process.env.TRANSPORTER_SECURE,
-	transporterPass: process.env.TRANSPORTER_PASS,
 	transporterUser: process.env.SERVICE_EMAIL,
+	transporterCientId: process.env.TRANSPORTER_CLIENT_ID,
+	transporterClientSecret: process.env.TRANSPORTER_CLIENT_SECRET,
+	transporterRefreshToken: process.env.TRANSPORTER_REFRESH_TOKEN
 }
