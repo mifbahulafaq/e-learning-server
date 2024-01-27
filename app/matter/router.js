@@ -13,13 +13,14 @@ const lengthMsg5 = 'Must be less than 255 characters long';
 const arrMsg = "Must be Array"
 
 const addValid = [
+	body('code_class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine),
+	body('status').notEmpty().bail().withMessage(noEmptyMsg).isIn(["active","inactive"]),
 	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
 	body('description').if(body('description').exists()).isLength({max:255}).withMessage(lengthMsg),
 	body('schedule').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
 	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
-	body('code_class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine),
-	body('status').notEmpty().bail().withMessage(noEmptyMsg).isIn(["active","inactive"]),
 ]
+const [codeClassVal, statusVal, ...editValid] = addValid;
 
 const {
 	getByClass,
@@ -33,8 +34,8 @@ const {
 router.get('/matters/by-class/:code_class', getByClass);
 router.get('/matters/:id_matt', getSingle);
 router.get('/matters/:id_matt/:filename', getAttachment);
-router.post('/matters', multer(uploadDoct).array('attachment', 3) ,addValid, create);
-router.put('/matters/:id_matt', multer(uploadDoct).array('attachment', 3), addValid, edit);
+router.post('/matters', multer(uploadDoct).array('attachment') ,addValid, create);
+router.put('/matters/:id_matt', multer(uploadDoct).array('new_attachment'), editValid, edit);
 router.delete('/matters/:id_matt', remove);
 
 module.exports = router;

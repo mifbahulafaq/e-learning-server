@@ -262,8 +262,8 @@ module.exports = {
 			}
 			
 			const errInsert = validationResult(req);
-			let { schedule, name, duration, description, code_class, status } = req.body;
-			let attachment = req.files.map(e=>e.filename);
+			let { schedule, name, duration, description, code_class, status, attachment } = req.body;
+			let new_attachment = req.files.map(e=>[e.filename, e.originalname]);
 			
 			if(!errInsert.isEmpty()){
 				removeFiles(req.files);
@@ -273,7 +273,7 @@ module.exports = {
 				})
 			}
 			
-			attachment = attachment.length ? JSON.stringify(attachment).replace('[','{').replace(']','}'): undefined;
+			new_attachment = new_attachment.length ? JSON.stringify(new_attachment).replace(/\[/g,'{').replace(/\]/g,'}'): undefined;
 			
 			//get single data for deleting the attachment
 			let getSql = {
@@ -283,10 +283,15 @@ module.exports = {
 			let { rows : getSingle } = await querySync(getSql);
 			let removedAttachments = getSingle[0].attachment;
 			
+			console.log(new_attachment)
+			console.log(attachment)
+			console.log(removedAttachments)
+			
+			return res.send('send')
 			//updating the data
 			let updateSql = {
-				text: 'UPDATE matters SET schedule = $1, name = $2, duration = $3, description = $4, attachment = $5, class = $6, status = $7 WHERE id_matter=$8 RETURNING *',
-				values: [ schedule, name, duration, description, attachment, code_class, status, id_matt]
+				text: 'UPDATE matters SET schedule = $1, name = $2, duration = $3, description = $4, attachment = $5, class = $6, status = $7 WHERE id_matter=$6 RETURNING *',
+				values: [ schedule, name, duration, description, attachment, id_matt]
 			}
 			let resultUpdate = await querySync(updateSql);
 			
