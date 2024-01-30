@@ -6,6 +6,7 @@ const path = require('path');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 const removeFiles = require('../utils/removeFiles');
+const sqlUpdate = require('../utils/sqlUpdate');
 const config = require('../../config');
 
 module.exports = {
@@ -240,8 +241,11 @@ module.exports = {
 	/*-----------------edit-------------------------*/
 	async edit(req, res, next){
 		
+		const { body, params, files } = req;
+		
 		try{
-			const id_matt = parseInt(req.params.id_matt);
+			const id_matt = parseInt(params.id_matt);
+			
 			let sql ={
 				text: 'SELECT c.teacher FROM matters m INNER JOIN classes c ON m.class = c.code_class  WHERE id_matter=$1',
 				values: [id_matt || undefined]
@@ -253,7 +257,7 @@ module.exports = {
 			
 			if(!policy.can('update', subjectMatter)){
 				
-				removeFiles(req.files);
+				removeFiles(files);
 				
 				return res.json({
 					error: 1,
@@ -262,42 +266,43 @@ module.exports = {
 			}
 			
 			const errInsert = validationResult(req);
-			let { schedule, name, duration, description, code_class, status, attachment } = req.body;
-			let new_attachment = req.files.map(e=>[e.filename, e.originalname]);
 			
 			if(!errInsert.isEmpty()){
-				removeFiles(req.files);
+				removeFiles(files);
 				return res.json({
 					error: 1,
 					field: errInsert.mapped()
 				})
 			}
 			
-			new_attachment = new_attachment.length ? JSON.stringify(new_attachment).replace(/\[/g,'{').replace(/\]/g,'}'): undefined;
-			
 			//get single data for deleting the attachment
 			let getSql = {
 				text: 'SELECT attachment FROM matters WHERE id_matter=$1',
 				values: [ id_matt ]
 			}
-			let { rows : getSingle } = await querySync(getSql);
-			let removedAttachments = getSingle[0].attachment;
+			let { rows: singleMatter } = await querySync(getSql);
+			singleMatter = singleMatter[0];
 			
-			console.log(new_attachment)
-			console.log(attachment)
-			console.log(removedAttachments)
+			let { attachment, ...data } = body;
 			
-			return res.send('send')
-			//updating the data
-			let updateSql = {
-				text: 'UPDATE matters SET schedule = $1, name = $2, duration = $3, description = $4, attachment = $5, class = $6, status = $7 WHERE id_matter=$6 RETURNING *',
-				values: [ schedule, name, duration, description, attachment, id_matt]
-			}
-			let resultUpdate = await querySync(updateSql);
+			body.attachment = body.attachment || [];
 			
-			if(resultUpdate.rowCount && removedAttachments){
-				let removedFiles = removedAttachments.map(e=>({path: path.join(config.rootPath,`public/document/${e[0]}`)}));
+			data.attachment = [...body.attachment, ...files].map(e=>[e.filename, e.originalname]);
+			data.attachment = data.attachment.length ? JSON.stringify(data.attachment).replace(/\[/g,'{').replace(/\]/g,'}'): null;
+			
+			//updating data..
+			const updatingSql = sqlUpdate({id_matter: id_matt}, 'matters', data);
+			let resultUpdate = await querySync(updatingSql);
+			
+			//finding what to remove..
+			body.attachment = body.attachment.map(e=>e.filename);
+			singleMatter.attachment = singleMatter?.attachment?.filter(e=>!body.attachment.includes(e[0]));
+			
+			if(resultUpdate.rowCount && singleMatter.attachment){
+
+				let removedFiles = singleMatter?.attachment.map(e=>({path: path.join(config.rootPath,`public/document/${e[0]}`)}));
 				removeFiles(removedFiles)
+				
 			}
 			
 			res.json({
@@ -305,7 +310,7 @@ module.exports = {
 			})
 			
 		}catch(err){
-			removeFiles(req.files);
+			removeFiles(files);
 			next(err)
 		}
 	},	

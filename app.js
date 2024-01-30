@@ -97,6 +97,7 @@ app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
 app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
 
 app.use(decodeToken);
+app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
 app.use('/api', apiRouter);
 
 //Error handling router

@@ -25,7 +25,7 @@ module.exports = {
 		size: 500000 //500kb
 	},
 	uploadDoct: {
-		dest: path.resolve(__dirname),
+		dest: path.resolve(__dirname, './public/document'),
 		ext: ['.pdf','.docx','.doc'],
 		size: 3000000 //3MB
 	},
