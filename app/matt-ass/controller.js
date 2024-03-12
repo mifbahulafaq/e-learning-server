@@ -46,7 +46,7 @@ module.exports = {
 			//get the main data and authorize
 			let sql_by_student = {
 				text: `SELECT ma.*, to_jsonb(m.*) matter, to_jsonb(c.*) class FROM matt_ass ma
-					   INNER JOIN matters m ON ma.id_matt = m.id_matter
+					   INNER JOIN matters m ON ma.id_matt = m.id_matter AND m.schedule <= now()
 					   INNER JOIN classes c ON m.class = c.code_class
 					   WHERE c.code_class IN (SELECT class FROM class_students WHERE "user" = $1) ${filter.status} ${filter.class}
 					   ORDER BY ma.date DESC LIMIT $2 OFFSET $3`,
@@ -54,7 +54,7 @@ module.exports = {
 			}
 			let sql_student_count = {
 				text: `SELECT * FROM matt_ass ma
-					   INNER JOIN matters m ON ma.id_matt = m.id_matter
+					   INNER JOIN matters m ON ma.id_matt = m.id_matter AND m.schedule <= now()
 					   INNER JOIN classes c ON m.class = c.code_class
 					   WHERE c.code_class IN (SELECT class FROM class_students WHERE "user" = $1) ${filter.status} ${filter.class}`,
 				values: [req.user.user_id]
@@ -163,7 +163,7 @@ module.exports = {
 			//get the main data and authorize
 			
 			let sql = {
-				text: "SELECT class FROM matters WHERE id_matter = $1",
+				text: "SELECT class, schedule FROM matters WHERE id_matter = $1",
 				values: [id_matt]
 			}
 			const singleMatter = await querySync(sql)
@@ -191,6 +191,16 @@ module.exports = {
 						message: "You're not allowed to read this data"
 					})
 				}
+				
+				const scheduleOfMatter = singleMatter.rows[0]?.schedule? new Date(singleMatter.rows[0]?.schedule): undefined;
+				
+				if(new Date() < scheduleOfMatter){
+					return res.json({
+						error: 1,
+						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
+					})
+				}
+				
 				
 				const { rows: mattAssData } = await querySync(sqlFunc(false, parseInt(no_answer)))
 				return res.json({
@@ -220,7 +230,7 @@ module.exports = {
 			}
 			
 			sql ={
-				text: 'SELECT class FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE ma.id_matt_ass = $1',
+				text: 'SELECT m.class, m.schedule FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE ma.id_matt_ass = $1',
 				values: [id_matt_ass]
 			} 
 			let { rows: mattAssData } = await querySync(sql);
@@ -247,6 +257,15 @@ module.exports = {
 					return res.json({
 						error: 1,
 						message: 'You have no access to read this data'
+					})
+				}
+				
+				const scheduleOfMatter = mattAssData[0]?.schedule? new Date(mattAssData[0]?.schedule): undefined;
+				
+				if(new Date() < scheduleOfMatter){
+					return res.json({
+						error: 1,
+						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
 					})
 				}
 				

@@ -205,7 +205,7 @@ module.exports = {
 		}
 		
 		const errInsert = validationResult(req);
-		let { schedule, name, duration, description, code_class, status } = req.body;
+		let { schedule, name, description, code_class, status } = req.body;
 		let attachment = req.files.map(e=>[e.filename, e.originalname]);
 		
 		if(!errInsert.isEmpty()){
@@ -221,8 +221,8 @@ module.exports = {
 		attachment = attachment.length ? JSON.stringify(attachment).replace(/\[/g,'{').replace(/\]/g,'}'): undefined;
 		
 		const query = {
-			text: 'INSERT INTO matters(schedule, name, duration, description, attachment, class, status) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-			values: [ schedule, name, duration, description, attachment, code_class, status ]
+			text: 'INSERT INTO matters(schedule, name, description, attachment, class, status) VALUES($1, $2, $3, $4, $5, $6) RETURNING *',
+			values: [ schedule, name, description, attachment, code_class, status ]
 		}
 		
 		try{

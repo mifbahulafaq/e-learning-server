@@ -27,13 +27,13 @@ module.exports = {
 			if(!policy.can('read', subjectAssAns)){//teacher auth
 			
 				sql = {
-					text: `SELECT *
+					text: `SELECT ma.*, m.schedule matter_schedule
 						FROM matt_ass ma
 						INNER JOIN matters m ON ma.id_matt=m.id_matter
 						WHERE ma.id_matt_ass = $1 AND m.class IN (SELECT class FROM class_students WHERE "user" = $2)`,
 					values: [id_matt_ass || undefined, req.user.user_id]
 				}
-				const { rows: userAss } = await querySync(sql)
+				const { rows: userAss } = await querySync(sql);
 				
 				subjectAssAns = subject('Assignment_answer',{user_id: userAss.length? req.user.user_id: undefined})
 				
@@ -41,6 +41,15 @@ module.exports = {
 					return res.json({
 						error: 1,
 						message: "You're not allowed to perform this assignment answer"
+					})
+				}
+
+				const scheduleOfMatter = userAss[0]?.matter_schedule? new Date(userAss[0]?.matter_schedule): undefined;
+				
+				if(new Date() < scheduleOfMatter){
+					return res.json({
+						error: 1,
+						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
 					})
 				}
 				
@@ -84,7 +93,7 @@ module.exports = {
 		try{
 			//authorize
 			let sql = {
-				text: 'SELECT c.teacher FROM ass_answers aa INNER JOIN matt_ass ma ON aa.id_matt_ass=ma.id_matt_ass INNER JOIN matters m ON ma.id_matt=m.id_matter INNER JOIN classes c ON m.class=c.code_class WHERE aa.id_ass_answer=$1',
+				text: 'SELECT c.teacher, m.schedule FROM ass_answers aa INNER JOIN matt_ass ma ON aa.id_matt_ass=ma.id_matt_ass INNER JOIN matters m ON ma.id_matt=m.id_matter INNER JOIN classes c ON m.class=c.code_class WHERE aa.id_ass_answer=$1',
 				values: [id_ass_ans || undefined]
 			}
 			let { rows: assAnswerData } = await querySync(sql);
@@ -107,6 +116,15 @@ module.exports = {
 					return res.json({
 						error: 1,
 						message: "You're not allowed to read this single assignment answer"
+					})
+				}
+				
+				const scheduleOfMatter = assAnswerData[0]?.schedule? new Date(assAnswerData[0]?.schedule): undefined;
+				
+				if(new Date() < scheduleOfMatter){
+					return res.json({
+						error: 1,
+						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
 					})
 				}
 			}
@@ -251,32 +269,42 @@ module.exports = {
 			const id_ass_ans = parseInt(req.params.id_ass_ans)
 			const filename = req.params.filename
 			
-			//student auth
-			let sql = {
-				text: "SELECT user_id FROM ass_answers WHERE id_ass_answer = $1",
+			
+			//teacher auth
+			sql = {
+				text: `SELECT c.teacher, m.schedule FROM ass_answers aa 
+					   INNER JOIN matt_ass ma ON aa.id_matt_ass = ma.id_matt_ass
+					   INNER JOIN matters m ON ma.id_matt = m.id_matter
+					   INNER JOIN classes c ON m.class = c.code_class
+					   WHERE aa.id_ass_answer = $1`,
 				values: [id_ass_ans || undefined]
 			}
-			const { rows: studentData } = await querySync(sql)
-			let subjectExamAns = subject('Assignment_answer', { user_id: studentData[0]?.user_id})
+			const { rows: teacherData } = await querySync(sql)
+			let subjectExamAns = subject('Assignment_answer', { user_id: teacherData[0]?.teacher})
 			
 			if(!policy.can('readsingle', subjectExamAns)){
 				
-				//teacher auth
-				sql = {
-					text: `SELECT c.teacher FROM ass_answers aa 
-						   INNER JOIN matt_ass ma ON aa.id_matt_ass = ma.id_matt_ass
-						   INNER JOIN matters m ON ma.id_matt = m.id_matter
-						   INNER JOIN classes c ON m.class = c.code_class
-						   WHERE aa.id_ass_answer = $1`,
+				//student auth
+				let sql = {
+					text: "SELECT user_id FROM ass_answers WHERE id_ass_answer = $1",
 					values: [id_ass_ans || undefined]
 				}
-				const { rows: teacherData } = await querySync(sql)
-				subjectExamAns = subject('Assignment_answer', { user_id: teacherData[0]?.teacher})
+				const { rows: studentData } = await querySync(sql)
+				subjectExamAns = subject('Assignment_answer', { user_id: studentData[0]?.user_id})
 				
 				if(!policy.can('readsingle', subjectExamAns)){
 					return res.json({
 						error: 1,
 						message: "You're not allowed to read this attachment"
+					})
+				}
+				
+				const scheduleOfMatter = teacherData[0]?.schedule? new Date(teacherData[0]?.schedule): undefined;
+				
+				if(new Date() < scheduleOfMatter){
+					return res.json({
+						error: 1,
+						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
 					})
 				}
 				

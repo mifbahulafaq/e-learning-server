@@ -15,6 +15,7 @@ const app = express();
 let config = require('./config');
 let port = config.port || 6000;
 const jwt = require('jsonwebtoken');
+const { querySync } = require('./database');
 
 //import middlewares
 const decodeToken = require('./middlewares/decodeToken');
@@ -63,7 +64,7 @@ app.use('/api/get-token', async (req,res, next)=>{
 		res.cookie('logged_in', true, {...accessTokenCookieOptions, httpOnly: false})
 			
 		res.json({
-			message: 'Get token is successful',
+			message: 'Getting token is successful',
 			token: access_token
 		})
 	}catch(err){
@@ -74,30 +75,25 @@ app.use('/api/get-token', async (req,res, next)=>{
 
 const emailService = require('./services/email');
 app.use('/api/test', async (req, res, next)=>{
-	const message = {
-			from: `"${config.serviceName}" <${config.serviceEmail}>`,
-			to: 'mifbahulafaq@outlook.com',
-			subject: 'Reset Password',
-			text: 'HALO',
-			html: `haloo`
-		}
 	
-	try{
-		const result = await emailService.sendEmail(message);
-		
-	}catch(err){
-		return next(err)
-	}
+	const access_token = jwt.sign(
+			{user_id: 93}, 
+			config.accessTokenSecretKey
+		)
 	
-	res.send('test')
+	
+	res.send(access_token)
 })
 
 app.use('/auth',authRouter);
-app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
-app.use('/private/document/:user_id',privateStaticFile, express.static(path.join(__dirname, 'public/document')))
 
-app.use(decodeToken);
 app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
+app.use(decodeToken);
+app.use(
+	'/private/document/:user_id',
+	privateStaticFile, 
+	express.static(path.join(__dirname, 'public/document'))
+)
 app.use('/api', apiRouter);
 
 //Error handling router
@@ -108,7 +104,6 @@ app.use((err,req,res,next)=>{
 	// set locals, only providing error in development
 	//res.locals.message = err.message;
 	//res.locals.error = req.app.get('env') === 'development' ? err : {};
-	console.log(err)
 	err.status = err.status || 500;
 	
 	return res.status(err.status).json({

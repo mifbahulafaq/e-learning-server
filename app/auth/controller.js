@@ -174,7 +174,7 @@ module.exports = {
 			res.redirect(config.client_url)
 			
 		}catch(err){
-			console.log('Failed to authorize Google user', err)
+			
 			res.redirect(`${config.client_url}/oauth/error`)
 		}
 		

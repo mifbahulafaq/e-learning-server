@@ -6,6 +6,7 @@ const userService = require('../app/user/service');
 
 const appError = require('../app/utils/appError');
 const decipher = require('../app/utils/decipher');
+const getToken = require('../app/utils/get-token');
 
 module.exports = async function(req, res, next){
 	
@@ -13,6 +14,17 @@ module.exports = async function(req, res, next){
 	const errorStatus = 200;
 	
 	try{
+		
+		//testing for authorization in postman
+		
+		const token = getToken(req);
+		
+		if(token){
+			
+			req.user = jwt.verify(token, config.accessTokenSecretKey);
+			return next();
+		}
+		//end of testing for authorization in postman
 	
 		if(req.cookies.access_token){
 			

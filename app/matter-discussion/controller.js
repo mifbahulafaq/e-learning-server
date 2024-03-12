@@ -11,35 +11,37 @@ module.exports = {
 			
 			//authorization
 			const policy = policyFor(req.user);
-			let sql_get_teacher = {
-				text: 'SELECT teacher FROM matters INNER JOIN classes ON class = code_class WHERE id_matter = $1',
+			let sql_get_matter = {
+				text: 'SELECT teacher, class, m.schedule FROM matters m INNER JOIN classes ON class = code_class WHERE id_matter = $1',
 				values: [req.params.id_matt]
 			}
-			let result = await querySync(sql_get_teacher);
+			let matterData = await querySync(sql_get_matter);
 			
-			let subjectMatterDiscuss = subject('Matter_discussion', {user_id: result.rows[0]?.teacher})
+			let subjectMatterDiscuss = subject('Matter_discussion', {user_id: matterData.rows[0]?.teacher})
 			
 			if(!policy.can('read', subjectMatterDiscuss)){
 				
-				
-				let sql_get_class = {
-					text: 'SELECT class FROM matters WHERE id_matter = $1',
-					values: [req.params.id_matt]
-				}
-				result = await querySync(sql_get_class);
-				
 				let sql_get_student = {
 					text: 'SELECT "user" FROM class_students WHERE class = $1 AND "user" = $2' ,
-					values: [result.rows[0]?.class, req.user?.user_id]
+					values: [matterData.rows[0]?.class, req.user?.user_id]
 				}
-				result = await querySync(sql_get_student);
+				studentData = await querySync(sql_get_student);
 				
-				subjectMatterDiscuss = subject('Matter_discussion', {user_id: result.rows[0]?.user})
+				subjectMatterDiscuss = subject('Matter_discussion', {user_id: studentData.rows[0]?.user})
 				
 				if(!policy.can('read', subjectMatterDiscuss)){
 					return res.json({
 						error: 1,
 						message: "You're not allowed to perform this action"
+					})
+				}
+				
+				const scheduleOfMatter = matterData.rows[0]?.schedule? new Date(matterData.rows[0]?.schedule): undefined;
+				
+				if(new Date() < scheduleOfMatter){
+					return res.json({
+						error: 1,
+						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
 					})
 				}
 			}
@@ -49,8 +51,8 @@ module.exports = {
 				values: [req.params.id_matt]
 			}
 			
-			result = await querySync(sql_get_mattdiscuss);
-			res.json({data: result.rows})
+			discussionData = await querySync(sql_get_mattdiscuss);
+			res.json({data: discussionData.rows})
 			
 		}catch(err){
 			console.log(err)

@@ -15,7 +15,6 @@ const arrMsg = "Must be Array"
 const addValid = [
 	body('code_class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine),
 	body('status').notEmpty().bail().withMessage(noEmptyMsg).isIn(["active","inactive"]),
-	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
 	body('description').if(body('description').exists()).isLength({max:255}).withMessage(lengthMsg),
 	body('schedule').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
 	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
@@ -23,7 +22,6 @@ const addValid = [
 const editValid = [
 	body('code_class').if(body('code_class').exists()).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine),
 	body('status').if(body('status').exists()).isIn(["active","inactive"]),
-	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
 	body('description').if(body('description').exists()).isLength({max:255}).withMessage(lengthMsg),
 	body('schedule').if(body('schedule').exists()).custom(isDate),
 	body('name').if(body('name').exists()).isLength({min:3, max:255}).withMessage(lengthMsg),
