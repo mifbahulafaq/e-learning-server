@@ -30,52 +30,6 @@ router.get('/assignment-answers/:id_ass_ans', getSingle);
 router.get('/assignment-answers/:id_ass_ans/:filename', getAttachment);
 router.put('/assignment-answers', multer(uploadDoct).single('content') ,fileToBody('content'), addValid, addAnswer);
 
-
-	// const storage = multer.diskStorage({
-		// destination: function(req, file, cb){
-			// cb(null, path.resolve(__dirname));
-		// },
-		// filename: function(req, file, cb){
-			
-			// let ext = file.originalname.split('.')
-			// [file.originalname.split('.').length - 1];
-			
-			// let randName = Date.now()+ Math.round(Math.random()*1E9)+'.'+ext;
-			
-			// cb(null, file.fieldname+'-'+randName)
-		// }
-	// })
-
-	// const fileFilter = function(req, file, cb){
-		// const file2 = path.extname(file.originalname).toLocaleLowerCase();
-		
-		// if(config.ext.indexOf(file2) == -1){
-			
-			// const err = new Error(`The format isn't support`);
-			// err.name = "MulterError";
-			// err.field = file.fieldname;
-			
-			// return cb(err);
-		// }
-		// cb(null,true);
-	// }
-
-// router.put(
-	// '/assignment-answers/test', 
-	// multer2({
-		// storage,
-		// limits: {fileSize : config.size},
-		// fileFilter
-	// }).single('content') ,
-	// fileToBody('content'),
-	// (req, res)=>{
-		
-		// console.log(req.body)
-		
-		// res.send('testing successfully')
-	// }
-// );
-
 module.exports = router;
 
 async function isMine(id_matt_ass, { req }){

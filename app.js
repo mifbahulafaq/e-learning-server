@@ -1,17 +1,3 @@
-
-// const multer = require('multer')
-
-// function Mahasiswa(name){
-	// this.name = name
-// }
-// Mahasiswa.prototype.kuliah = ()=>{
-	// console.log('sedang kuliah')
-// }
-// const mhs_mif = new Mahasiswa('mif')
-// console.dir(multer)
-// console.dir(Object.getPrototypeOf(multer()))
-//end test
-
 // const { Buffer } = require('buffer');
 // console.log(Buffer.from('sad'))
 const http = require('http');
