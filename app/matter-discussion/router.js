@@ -11,7 +11,7 @@ const intMsg = 'Input must be integer';
 
 const addValid = [
 	body('date').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
-	body('text').notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg).isLength({min:1,max:255}).withMessage(lengthMsg),
+	body('text').notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg),
 	body('matt').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(intMsg).custom(isMine)
 ]
 
