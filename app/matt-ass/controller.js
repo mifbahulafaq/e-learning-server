@@ -86,7 +86,7 @@ module.exports = {
 				
 					resultByStudent = await querySync(sql_by_student)
 					byStudentCount = await querySync(sql_student_count)
-				console.log(req.user.user_id)
+					
 					return res.json({
 						data: resultByStudent.rows,
 						rowCount: byStudentCount.rowCount 
@@ -133,7 +133,7 @@ module.exports = {
 		
 		const id_matt = parseInt(req.params.id_matt);
 		const { no_answer } = req.query //no answers or must be done
-		const sqlFunc = function(teacherRole, noAnswer){
+		const sqlFunc = function(teacherRole){
 			
 			if(parseInt(no_answer)){
 				
@@ -143,7 +143,8 @@ module.exports = {
 				}
 				return {
 					text: `SELECT * FROM matt_ass 
-						   WHERE id_matt = $1 AND id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers ${additionalSql.text}) AND ( now() <= date + concat(duration / 1000, ' S')::interval OR duration = 0)`,
+						   WHERE id_matt = $1 AND id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers ${additionalSql.text}) AND ( now() <= (date + concat(duration / 1000, ' S')::interval) OR duration = 0)
+						   ORDER BY date DESC`,
 					values: additionalSql.values
 				}
 			}else{
@@ -153,7 +154,8 @@ module.exports = {
 					values: !teacherRole? [id_matt, req.user?.user_id]: [id_matt]
 				}
 				return {
-					text: `SELECT ma.*, (SELECT count(*) FROM ass_answers WHERE id_matt_ass = ma.id_matt_ass ${additionalSql.text}) total_answers FROM matt_ass ma WHERE id_matt = $1`,
+					text: `SELECT ma.*, (SELECT count(*) FROM ass_answers WHERE id_matt_ass = ma.id_matt_ass ${additionalSql.text}) total_answers FROM matt_ass ma WHERE id_matt = $1
+					ORDER BY date DESC`,
 					values: additionalSql.values
 				}
 			}
@@ -202,13 +204,13 @@ module.exports = {
 				}
 				
 				
-				const { rows: mattAssData } = await querySync(sqlFunc(false, parseInt(no_answer)))
+				const { rows: mattAssData } = await querySync(sqlFunc(false))
 				return res.json({
 					data: mattAssData
 				})
 			}
 			
-			const { rows: mattAssData } = await querySync(sqlFunc(true, parseInt(no_answer)))
+			const { rows: mattAssData } = await querySync(sqlFunc(true))
 			return res.json({
 				data: mattAssData
 			})
