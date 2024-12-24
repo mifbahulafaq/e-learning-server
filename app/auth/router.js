@@ -7,7 +7,7 @@ const bcrypt = require('bcrypt');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const HASH_ROUND = 10;
-const { querySync } = require('../../database');
+const users = require('../../services/table')('users');
 const decodeToken = require('../../middlewares/decodeToken')
 
 const noEmptyMsg = 'This field must be filled';
@@ -60,13 +60,13 @@ module.exports = router;
 
 //custom validator
  async function emailUnique(value){
-	const query = {
-		text: 'SELECT * FROM users WHERE email = $1',
-		values: [value]
-	}
+	 
 	try{
-		const result = await querySync(query);
+
+		const result = await users.find({email: value}).execute();
+		
 		if(result.rowCount) return Promise.reject('Email is already used');
+		
 	}catch(err){
 		console.log(err.stack)
 	}

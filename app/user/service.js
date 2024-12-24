@@ -1,34 +1,16 @@
-const { querySync } = require('../../database')
+const { querySync } = require('../../services/query');
+const users = require('../../services/table')('users');
 const path = require('path')
 const config = require('../../config')
-const sqlUpdate = require('../utils/sqlUpdate')
-const sqlGet = require('../utils/sqlGet')
-const removeFiles = require('../utils/removeFiles')
+const { removeFiles } = require('../../services/file')
 const appError = require('../utils/appError')
-
 
 module.exports = {
 	
 	async insertUser(data, obj = { } ){
-		
-		const keysOfData = Object.keys(data)
-		
-		if(!keysOfData.length) throw appError('No data sent')
-		
-		const sqlColumn = keysOfData.join(",")
-		const sqlValues = keysOfData.map((e,i)=>`$${i+1}`)
-		const valArr = keysOfData.map((e,i)=>data[e])
-		
-		const returning = obj?.return? 'returning *': '';
-		
-		 let sql_createUser = {
-			 text: `INSERT INTO users(${sqlColumn}) VALUES(${sqlValues}) ${returning}`,
-			 values: valArr
-		 }
-		 
 		 try{
 			
-			 return await querySync(sql_createUser)
+			 return await users.insert(data)
 
 		 }catch(err){
 			 throw err
@@ -38,8 +20,7 @@ module.exports = {
 	async findUser(where){
 		try{
 			
-			const sql = sqlGet("users", where)
-			return await querySync(sql)
+			return await users.find(where).execute()
 			
 		}catch(err){
 			throw err
@@ -47,13 +28,8 @@ module.exports = {
 	},
 	
 	async updatePass(new_password, user_id){
-		const sql_updatePwd = {
-				text: "UPDATE users SET password = $1 WHERE user_id = $2",
-				values: [new_password, user_id]
-			}
-		
 		try{
-			return await querySync(sql_updatePwd)
+			return await users.update({ password: new_password}, {user_id}).execute()
 		}catch(err){
 			throw err
 		}

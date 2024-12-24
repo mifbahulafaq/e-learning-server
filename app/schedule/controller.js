@@ -1,4 +1,4 @@
-const { querySync } = require('../../database');
+const { querySync } = require('../../services/query');
 const { validationResult } = require('express-validator');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');

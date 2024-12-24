@@ -1,8 +1,8 @@
-const router = require('express').Router()
+const router = require('express').Router();
 const { body } = require('express-validator')
 const multer = require('../../middlewares/upload')
 const config = require('../../config')
-const { querySync } = require('../../database')
+const { querySync } = require('../../services/query');
 
 //messages
 const notEmpty = "The field must be filled"
@@ -22,12 +22,16 @@ const {
 	deleteMattAss,
 	getMattAss,
 	getByMatter,
-	singleMattAss
+	singleMattAss,
+	getAttachment
 } = require('./controller');
+
+const { singleAssignmentAuthor } = require('./middleware');
 
 router.get('/matter-assignments/by-matter/:id_matt', getByMatter)
 router.get('/matter-assignments', getMattAss)
-router.get('/matter-assignments/:id_matt_ass', singleMattAss)
+router.get('/matter-assignments/:id_matt_ass', singleAssignmentAuthor, singleMattAss)
+router.get('/matter-assignments/:id_matt_ass/:filename', singleAssignmentAuthor, getAttachment)
 router.post('/matter-assignments', multer(config.uploadDoct).single('attachment'), addValidation, addMattAss)
 router.delete('/matter-assignments/:id_matt_ass', deleteMattAss)
 
@@ -42,21 +46,16 @@ function ignoreWhitespace(val){
 //custom validation
 async function isMine(id_matt, { req }){
 	
-	try{
-		let sql = {
-			text: "SELECT class FROM matters WHERE id_matter = $1",
-			values: [id_matt]
-		}
-		const singleMatter = await querySync(sql)
-		sql = {
-			text: "SELECT * FROM classes WHERE code_class = $1 AND teacher = $2",
-			values: [singleMatter.rows[0]?.class, req.user?.user_id]
-		}
-		const singleClass = await querySync(sql)
-		
-		if(!singleClass.rowCount) return Promise.reject("Id Matter isn't found")
-			
-	}catch(err){
-		throw err
+	let sql = {
+		text: "SELECT class FROM matters WHERE id_matter = $1",
+		values: [id_matt]
 	}
+	const singleMatter = await querySync(sql)
+	sql = {
+		text: "SELECT * FROM classes WHERE code_class = $1 AND teacher = $2",
+		values: [singleMatter.rows[0]?.class, req.user?.user_id]
+	}
+	const singleClass = await querySync(sql)
+	
+	if(!singleClass.rowCount) return Promise.reject("Id Matter isn't found")
 }

@@ -1,13 +1,21 @@
-const { querySync } = require('../../database');
 const { validationResult } = require('express-validator');
 const moment = require('moment');
 const fs = require('fs');
 const path = require('path');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
-const removeFiles = require('../utils/removeFiles');
-const sqlUpdate = require('../utils/sqlUpdate');
 const config = require('../../config');
+const examColNames = ['text', 'code_class', 'duration', 'schedule', 'attachment'];
+
+const toSqlArray = require('../utils/toSqlArray');
+const filterData = require('../utils/filterData');
+const appError = require('../utils/appError');
+const searchFileOfArrays = require('../utils/searchFileOfArrays');
+
+const examServices = require('./service');
+const { querySync } = require('../../services/query');
+const fileService = require('../../services/file');
+
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -40,7 +48,7 @@ module.exports = {
 				END
 				ASC`
 			
-			if(parseInt(qs.cs)) delete qs.latest //cs (coming soon)
+			if(parseInt(qs.cs)) delete qs.latest //cs (coming soon / latest data)
 			return {
 				text: `SELECT e.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo, (SELECT count(*) FROM exam_answers WHERE id_exm = e.id_exm ${additionalSql.text}) total_answers FROM exams e INNER JOIN classes c ON e.code_class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE e.code_class = $1 ${parseInt(qs.cs)? csSql: ''} ${ parseInt(qs.latest)?latestSql:''}`,
 				values: additionalSql.values
@@ -66,13 +74,7 @@ module.exports = {
 				const { rows: studentData } = await querySync(sqlGetStudent);
 				const subjectExam2 = subject('Exam',{user_id: studentData[0]?.user});
 				
-				if(!policy.can('read', subjectExam2)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to get exam data"
-					})
-					
-				}
+				if(!policy.can('read', subjectExam2)) throw appError("You're not allowed to get exam data", 200)
 				
 				const { rows: examData } = await querySync(sqlFunc(false));
 				return res.json({data: examData})
@@ -89,101 +91,61 @@ module.exports = {
 	
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
-		
-		const id_exm = parseInt(req.params.id_exm);
+		res.json({data: req.data})
+	},
+	
+	async getAttachment(req, res, next){
 		try{
-			//get the main data and authorize
-			const query = {
-				text: 'SELECT e.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo FROM exams e INNER JOIN classes c ON e.code_class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE id_exm = $1',
-				values: [id_exm || undefined]
-			}
-			const { rows: examData } = await querySync(query);
 			
-			//authorize
-			let sqlGetStudent = {
-				text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
-				values: [examData[0]?.code_class, req.user?.user_id]
-			}
-			const { rows: studentData} = await querySync(sqlGetStudent);
+			const data = req.data?.[0]?.attachment? [req.data?.[0]?.attachment]: [];
 			
-			const policy = policyFor(req.user);
-			const subjectExam = subject('Exam',{user_id: examData[0]?.teacher});
-			const subjectExam2 = subject('Exam',{user_id: studentData[0]?.user});
+			await searchFileOfArrays( data, req.params.filename)
 			
-			if(!policy.can('readsingle',subjectExam)){
-				if(!policy.can('readsingle',subjectExam2)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to get a single exam data"
-					})
-				}
-			}
-			res.json({data: examData})
-			
+			res.json({
+				path: `/private/document/${req.user.user_id}/${req.params.filename}`
+			})
 		}catch(err){
-			console.log(err)
-			next(err);
+			next(err)
 		}
-		
 	},
 	
 	/*-----------------add-------------------------*/
 	async create(req, res, next){
 		
-		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Exam')){
-			
-			removeFiles([req.file]);
-			
-			return res.json({
-				error: 1,
-				message: 'You have no access to create a exam'
-			})
-		}
-		
-		const errInsert = validationResult(req);
-		let { schedule, text, duration = 0, code_class } = req.body;
-		let attachment = []
-		if(req.file){
-			attachment[0] = req.file.filename
-			attachment[1] = req.file.originalname
-		}
-		
-		
-		if(!errInsert.isEmpty()){
-			
-			removeFiles([req.file]);
-			
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
-		attachment = attachment.length? JSON.stringify(attachment).replace('[', '{').replace(']', '}'): undefined
-		const query = {
-			text: 'INSERT INTO exams(schedule, text, duration, attachment, code_class) VALUES($1, $2, $3, $4, $5) RETURNING *',
-			values: [ schedule, text, duration, attachment, code_class ]
-		}
-		
 		try{
-			const result = await querySync(query);
+			let policy = policyFor(req.user);
+			if(!policy.can('create', 'Exam')) throw appError('You have no access to create a exam', 200);
+			
+			const errInsert = validationResult(req);
+			
+			if(!errInsert.isEmpty()){
+				
+				const err = appError('Insert', 200);
+				err.field = errInsert.mapped();
+				
+				throw err
+			}
+			
+			//inserting...
+			const { file, body } = req;
+			const result = await examServices.insert({ body, file });
+			
 			res.json({
 				data: result.rows
 			})
 		}catch(err){
-			
-			removeFiles([req.file]);
-			
 			next(err)
 		}
 	},
 	
 	/*-----------------edit-------------------------*/
-	async edit(req, res, next){
+	async put(req, res, next){
 		
+		const { file, body, params, user } = req;
+			// console.log()
 		try{
-			const id_exm = parseInt(req.params.id_exm) || undefined;
+			
+			const id_exm = parseInt(params.id_exm) || undefined;
 			let sql ={
 				text: 'SELECT c.teacher FROM exams m INNER JOIN classes c ON m.code_class = c.code_class  WHERE id_exm=$1',
 				values: [id_exm]
@@ -191,58 +153,27 @@ module.exports = {
 			
 			const { rows } = await querySync(sql);
 			const subjectExam = subject('Exam', {user_id: rows[0]?.teacher})
-			let policy = policyFor(req.user);
+			let policy = policyFor(user);
 			
-			if(!policy.can('update', subjectExam)){
-				
-				removeFiles([req.file]);
-				
-				return res.json({
-					error: 1,
-					message: 'You have no access to edit this exam'
-				})
-			}
+			if(!policy.can('update', subjectExam)) throw appError('You have no access to edit this exam', 200);
 			
 			const errInsert = validationResult(req);
-			if(req.file?.filename) req.body.attachment = req.file?.filename;
 			
 			if(!errInsert.isEmpty()){
-				removeFiles([req.file]);
-				return res.json({
-					error: 1,
-					field: errInsert.mapped()
-				})
+				
+				const err = appError('insert', 200);
+				err.field = errInsert.mapped()
+				
+				throw err;
 			}
-			
-			//get single data for deleting the attachment
-			let getSql = {
-				text: 'SELECT attachment FROM exams WHERE id_exm=$1',
-				values: [ id_exm ]
-			}
-			let { rows : getSingle } = await querySync(getSql);
-			let removedAttachment = getSingle[0]?.attachment[0] || undefined;
-			
-			//updating the data
-			const { schedule, name, duration, description, attachment, code_class} = req.body;
-			const updateData = { schedule, name, duration, description, attachment, code_class};
-			
-			sql = sqlUpdate({ id_exm }, 'exams', updateData)
-			
-			let resultUpdate = await querySync(sql);
-			
-			if(resultUpdate.rowCount && req.file){
-				if(removedAttachment){
-					let removedFile = [{path: path.join(config.rootPath,`public/document/${removedAttachment}`)}];
-					removeFiles(removedFile)
-				}
-			}
+			//updating..
+			const resultUpdate = await examServices.update(id_exm, { file, body})
 			
 			res.json({
 				data: resultUpdate.rows
 			})
 			
 		}catch(err){
-			removeFiles([req.file]);
 			next(err)
 		}
 	},	
@@ -260,13 +191,7 @@ module.exports = {
 			const subjectMatter = subject('Exam', {user_id: rows[0]?.teacher})
 			let policy = policyFor(req.user);
 			
-			if(!policy.can('delete', subjectMatter)){
-				
-				return res.json({
-					error: 1,
-					message: 'You have no access to delete this exam'
-				})
-			}
+			if(!policy.can('delete', subjectMatter)) throw appError('You have no access to delete this exam', 200)
 			
 			let deleteSql = {
 				text: 'DELETE FROM Exams WHERE id_exm=$1 RETURNING *',
@@ -276,7 +201,7 @@ module.exports = {
 			
 			if(resultDelete.rowCount) {
 				let removedFiles = [{path: path.join(config.rootPath,`public/document/${resultDelete.rows[0]?.attachment[0]}`)}];
-				removeFiles(removedFiles);
+				fileService.removeFiles(removedFiles);
 			}
 			
 			return res.json({
@@ -285,7 +210,6 @@ module.exports = {
 			})
 			
 		}catch(err){
-			console.log(err)
 			next(err)
 		}
 	}

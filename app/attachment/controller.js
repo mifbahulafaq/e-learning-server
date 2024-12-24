@@ -1,7 +1,9 @@
-const { querySync } = require('../../database');
 const { validationResult } = require('express-validator');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
+const { querySync } = require('../../services/query');
+const classes = require('../../services/table')('classes');
+const schedules = require('../../services/table')('schedules');
 
 module.exports = {
 	
@@ -19,11 +21,7 @@ module.exports = {
 				})
 			}
 			
-			let sql = {
-				text: "SELECT teacher FROM classes WHERE code_class=$1",
-				values: [code_class]
-			}
-			let result = await querySync(sql);
+			let result = await classes.find({ code_class }).execute();
 			
 			const subjectSchedule = subject('Schedule', {user_id: result.rows[0]?.teacher})
 			const policy = policyFor(req.user);
@@ -63,11 +61,9 @@ module.exports = {
 		
 		try{
 			
-			let sql = {
-				text: "SELECT teacher FROM classes WHERE code_class=$1",
-				values: [req.params.code_class]
-			}
-			let result = await querySync(sql);
+			const code_class = parseInt(req.params.code_class) || undefined;
+			
+			let result = await classes.find({ code_class}).execute();
 			
 			const subjectSchedule = subject('Schedule', {user_id: result.rows[0].teacher})
 			const policy = policyFor(req.user);
@@ -79,9 +75,7 @@ module.exports = {
 				})
 			}
 			
-			sql.text = "SELECT * FROM schedules WHERE code_class=$1";
-			sql.values = [req.params.code_class];
-			result = await querySync(sql);
+			result = await schedules.find({code_class}).execute();
 			
 			return res.json({data: result.rows});
 			

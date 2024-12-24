@@ -2,7 +2,7 @@ const router = require('express').Router();
 const multer = require('multer');
 const { body } = require('express-validator');
 const moment = require('moment');
-const { querySync } = require('../../database');
+const { querySync } = require('../../services/query');
 
 const noEmptyMsg = 'This field must be filled';
 const lengthMsg = 'Must be less than 255 characters long';

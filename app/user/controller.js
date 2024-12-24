@@ -1,8 +1,7 @@
-const { querySync } = require('../../database')
+const { querySync } = require('../../services/query');
 const policyFor = require('../policy')
 const { subject } = require('@casl/ability')
-const { validationResult } = require('express-validator')
-const removeFiles = require('../utils/removeFiles')
+const { validationResult } = require('express-validator');
 const config = require('../../config')
 const path = require('path')
 const appError = require('../utils/appError')
@@ -46,12 +45,11 @@ module.exports = {
 		
 		if(!errInsert.isEmpty()){
 			
-			removeFiles([req.file])
+			const err = appError('Insert', 200);
+			err.field = errInsert.mapped();
 			
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
+			throw err;
+			
 		}
 		
 		try{
@@ -64,7 +62,7 @@ module.exports = {
 			
 			const result = await userService.updateUser({user_id}, updateData)
 			
-			if(!result.rowCount) return next(appError('Update user failed', 200))
+			if(!result.rowCount) throw appError('Update user failed', 200)
 			
 			const { password, token, ...remains} = result.rows[0]
 			return res.json(remains)

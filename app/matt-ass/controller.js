@@ -1,48 +1,46 @@
-const { querySync } = require('../../database');
+const { querySync } = require('../../services/query');
 const { validationResult } = require('express-validator');
 const path = require('path');
+const fs = require('fs');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
-const removeFiles = require('../utils/removeFiles');
+const { removeFiles } = require('../../services/file');
+const toSqlArray = require('../utils/toSqlArray');
+const appError = require('../utils/appError');
 const config = require('../../config');
 
 module.exports = {
 	/*-----------------get-------------------------*/
 	async getMattAss(req, res, next){
 		
-		let { by, status, class: aClass = "", skip, limit = 10} = req.query
-		
-		let filter = {
-			status: "",
-			class: ""
-		}
-		
-		const policy = policyFor(req.user)
-		if(!policy.can('readall', 'Matt_ass')){
-			return res.json({
-				error: 1,
-				message: "You aren't allowed to access this resource"
-			})
-		}
-		
-		//set sql filter
-		//filter aClass
-		filter.class = parseInt(aClass)?`AND m.class = ${parseInt(aClass)}`:""
-		//filter statuts
-		switch(status){
-			case "none":
-				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ( now() <= ma.date + concat(ma.duration / 1000, ' S')::interval OR ma.duration = 0 )"
-				break;
-			case "done":
-				filter.status = "AND ma.id_matt_ass IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1)"
-				break;
-			case "expired":
-				filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ma.duration != 0 AND now() > ma.date + concat(ma.duration / 1000, ' S')::interval"
-			break;
-		}
-		
-		const number_of_answers = '(SELECT count(*) FROM ass_answers WHERE id_matt_ass = ma.id_matt_ass)'
 		try{
+			let { by, status, class: aClass = "", skip, limit = 10} = req.query
+			
+			let filter = {
+				status: "",
+				class: ""
+			}
+			
+			const policy = policyFor(req.user)
+			if(!policy.can('readall', 'Matt_ass')) throw appError("You aren't allowed to access this resource", 200);
+			
+			//set sql filter
+			//filter aClass
+			filter.class = parseInt(aClass)?`AND m.class = ${parseInt(aClass)}`:""
+			//filter statuts
+			switch(status){
+				case "none":
+					filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ( now() <= ma.date + concat(ma.duration / 1000, ' S')::interval OR ma.duration = 0 )"
+					break;
+				case "done":
+					filter.status = "AND ma.id_matt_ass IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1)"
+					break;
+				case "expired":
+					filter.status = "AND ma.id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers WHERE user_id = $1) AND ma.duration != 0 AND now() > ma.date + concat(ma.duration / 1000, ' S')::interval"
+				break;
+			}
+			
+			const number_of_answers = '(SELECT count(*) FROM ass_answers WHERE id_matt_ass = ma.id_matt_ass)'
 			//get the main data and authorize
 			let sql_by_student = {
 				text: `SELECT ma.*, to_jsonb(m.*) matter, to_jsonb(c.*) class FROM matt_ass ma
@@ -123,7 +121,6 @@ module.exports = {
 			
 			
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 		
@@ -131,37 +128,37 @@ module.exports = {
 	/*-----------------get by matter-------------------------*/
 	async getByMatter(req, res, next){
 		
-		const id_matt = parseInt(req.params.id_matt);
-		const { no_answer } = req.query //no answers or must be done
-		const sqlFunc = function(teacherRole){
+		try{
 			
-			if(parseInt(no_answer)){
+			const id_matt = parseInt(req.params.id_matt);
+			const { no_answer } = req.query //no answers or must be done
+			const sqlFunc = function(teacherRole){
 				
-				const additionalSql = {
-					text: !teacherRole? "WHERE user_id = $2": "",
-					values: !teacherRole? [id_matt, req.user?.user_id]: [id_matt]
-				}
-				return {
-					text: `SELECT * FROM matt_ass 
-						   WHERE id_matt = $1 AND id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers ${additionalSql.text}) AND ( now() <= (date + concat(duration / 1000, ' S')::interval) OR duration = 0)
-						   ORDER BY date DESC`,
-					values: additionalSql.values
-				}
-			}else{
-				
-				const additionalSql = {
-					text: !teacherRole? "AND user_id = $2": "",
-					values: !teacherRole? [id_matt, req.user?.user_id]: [id_matt]
-				}
-				return {
-					text: `SELECT ma.*, (SELECT count(*) FROM ass_answers WHERE id_matt_ass = ma.id_matt_ass ${additionalSql.text}) total_answers FROM matt_ass ma WHERE id_matt = $1
-					ORDER BY date DESC`,
-					values: additionalSql.values
+				if(parseInt(no_answer)){
+					
+					const additionalSql = {
+						text: !teacherRole? "WHERE user_id = $2": "",
+						values: !teacherRole? [id_matt, req.user?.user_id]: [id_matt]
+					}
+					return {
+						text: `SELECT * FROM matt_ass 
+							   WHERE id_matt = $1 AND id_matt_ass NOT IN (SELECT id_matt_ass FROM ass_answers ${additionalSql.text}) AND ( now() <= (date + concat(duration / 1000, ' S')::interval) OR duration = 0)
+							   ORDER BY date DESC`,
+						values: additionalSql.values
+					}
+				}else{
+					
+					const additionalSql = {
+						text: !teacherRole? "AND user_id = $2": "",
+						values: !teacherRole? [id_matt, req.user?.user_id]: [id_matt]
+					}
+					return {
+						text: `SELECT ma.*, (SELECT count(*) FROM ass_answers WHERE id_matt_ass = ma.id_matt_ass ${additionalSql.text}) total_answers FROM matt_ass ma WHERE id_matt = $1
+						ORDER BY date DESC`,
+						values: additionalSql.values
+					}
 				}
 			}
-		}
-		
-		try{
 			//get the main data and authorize
 			
 			let sql = {
@@ -199,7 +196,7 @@ module.exports = {
 				if(new Date() < scheduleOfMatter){
 					return res.json({
 						error: 1,
-						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
+						message: "You can only get the data when the time enters the schedule of the matter " + scheduleOfMatter.toLocaleString("en-US")
 					})
 				}
 				
@@ -221,56 +218,51 @@ module.exports = {
 		}
 		
 	},
+	
+	
+	
+	async getAttachment(req, res, next){
+		
+		try{
+			
+			let sql = {
+				text: 'SELECT * FROM matt_ass WHERE id_matt_ass = $1 AND $2 = ANY(attachment)',
+				values: [id_matt_ass, req.params.filename]
+			}
+			let fileData = await querySync(sql);
+			
+			if(fileData.rowCount){
+				
+				const filePath = path.join(config.rootPath, `public/document/${req.params.filename}`);
+				
+				if(fs.existsSync(filePath)){
+					return res.json({
+						path: `/private/document/${req.user.user_id}/${req.params.filename}`
+					})
+				}
+			}
+			
+			return res.json({
+				error: 1,
+				message: "File's not found"
+			})
+			
+			
+		}catch(err){
+			next(err);
+		}
+		
+	},
 	async singleMattAss(req, res, next){
 	
 		try{
 			const id_matt_ass = parseInt(req.params.id_matt_ass) || undefined;
-			let policy = policyFor(req.user);
 			let additionalSql = {
 				text: "",
 				values: [id_matt_ass]
 			}
 			
-			sql ={
-				text: 'SELECT m.class, m.schedule FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE ma.id_matt_ass = $1',
-				values: [id_matt_ass]
-			} 
-			let { rows: mattAssData } = await querySync(sql);
-			
-			sql ={
-				text: 'SELECT teacher FROM classes WHERE code_class = $1 AND teacher = $2',
-				values: [mattAssData[0]?.class, req.user?.user_id]
-			} 
-			let { rows: classData } = await querySync(sql);
-			let subjectMattAss = subject('Matt_ass', {user_id: classData[0]?.teacher})
-			
-			//teacher authorize
-			if(!policy.can('readsingle', subjectMattAss)){
-				
-				let sql_get_student = {
-					text: 'SELECT "user" FROM class_students WHERE class = $1 AND "user" = $2' ,
-					values: [mattAssData[0]?.class, req.user?.user_id]
-				}
-				const { rows: studentData } = await querySync(sql_get_student);
-				subjectMattAss = subject('Matt_ass', {user_id: studentData[0]?.user})
-				
-				//student authorize
-				if(!policy.can('readsingle', subjectMattAss)){
-					return res.json({
-						error: 1,
-						message: 'You have no access to read this data'
-					})
-				}
-				
-				const scheduleOfMatter = mattAssData[0]?.schedule? new Date(mattAssData[0]?.schedule): undefined;
-				
-				if(new Date() < scheduleOfMatter){
-					return res.json({
-						error: 1,
-						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
-					})
-				}
-				
+			if(!req.isTeacher){
 				additionalSql.text = "AND user_id = $2" 
 				additionalSql.values = [id_matt_ass, req.user?.user_id]
 			}
@@ -292,7 +284,6 @@ module.exports = {
 			})
 			
 		}catch(err){
-			console.log(err)
 			next(err)
 		}
 	},
@@ -300,50 +291,38 @@ module.exports = {
 	/*-----------------add-------------------------*/
 	async addMattAss(req, res, next){
 		
-		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Matt_ass')){
-			
-			removeFiles([req.file]);
-			
-			return res.json({
-				error: 1,
-				message: 'You have no access to create a assignment'
-			})
-		}
-		
-		const errInsert = validationResult(req);
-		let { duration = 0, text, id_matt, title } = req.body;
-		let attachment = []
-		if(req.file){
-			attachment[0] = req.file.filename
-			attachment[1] = req.file.originalname
-		}
-		
-		if(!errInsert.isEmpty()){
-			
-			removeFiles([req.file]);
-			
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
-		attachment = attachment.length ? JSON.stringify(attachment).replace(/\[/g,'{').replace(/\]/g,'}'): undefined;
-		
-		const query = {
-			text: 'INSERT INTO matt_ass(duration, text, attachment, id_matt, title) VALUES($1, $2, $3, $4, $5) RETURNING *',
-			values: [ duration, text, attachment, id_matt, title ]
-		}
-		
 		try{
+			let policy = policyFor(req.user);
+		
+			if(!policy.can('create', 'Matt_ass')) throw appError('You have no access to create a assignment', 200);
+			
+			const errInsert = validationResult(req);
+			let { duration = 0, text, id_matt, title } = req.body;
+			let attachment = []
+			if(req.file){
+				attachment[0] = req.file.filename
+				attachment[1] = req.file.originalname
+			}
+			
+			if(!errInsert.isEmpty()){
+				
+				const err = appError('Insert', 200);
+				err.field = errInsert.mapped();
+				
+				throw err;
+			}
+			
+			attachment =toSqlArray(attachment);
+			
+			const query = {
+				text: 'INSERT INTO matt_ass(duration, text, attachment, id_matt, title) VALUES($1, $2, $3, $4, $5) RETURNING *',
+				values: [ duration, text, attachment, id_matt, title ]
+			}
 			const result = await querySync(query);
 			res.json({
 				data: result.rows
 			})
 		}catch(err){
-			removeFiles([req.file]);
-			console.log(err)
 			next(err)
 		}
 	},
@@ -389,7 +368,6 @@ module.exports = {
 			})
 			
 		}catch(err){
-			console.log(err)
 			next(err)
 		}
 	}

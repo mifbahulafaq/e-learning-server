@@ -1,6 +1,6 @@
 const policyFor = require('../policy')
-const { subject } = require('@casl/ability')
-const removeFiles = require('../utils/removeFiles')
+const { subject } = require('@casl/ability');
+const appError = require('../utils/appError')
 
 module.exports = {
 	
@@ -14,14 +14,7 @@ module.exports = {
 		
 			const subjectUser = subject('User', { user_id })
 			
-			if(!policy.can(can, subjectUser)){
-				
-				removeFiles(FileDatas)
-				return res.json({
-					error: 1,
-					message: "You aren't allow to read this data"
-				})
-			}
+			if(!policy.can(can, subjectUser)) throw appError("You aren't allow to read this data", 200)
 			
 			next()
 		}

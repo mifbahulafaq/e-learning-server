@@ -1,4 +1,4 @@
-const { querySync } = require('../database');
+const { querySync } = require('../services/query');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 
@@ -20,7 +20,6 @@ module.exports = async function(req, res, next){
 		const token = getToken(req);
 		
 		if(token){
-			
 			req.user = jwt.verify(token, config.accessTokenSecretKey);
 			return next();
 		}
@@ -64,7 +63,7 @@ module.exports = async function(req, res, next){
 		next(appError("You aren't logged in", 200));
 		
 	}catch(err){
-		
+		console.log(err)
 		const jwtErrorNames = ['JsonWebTokenError', 'NotBeforeError', 'TokenExpiredError'];
 		
 		if(

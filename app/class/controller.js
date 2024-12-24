@@ -1,11 +1,12 @@
-const { querySync } = require('../../database');
+const { querySync } = require('../../services/query');
+const classes = require('../../services/table')('classes');
 const { validationResult } = require('express-validator');
 const moment = require('moment');
 const path = require('path')
 const config = require('../../config')
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
-const removeFiles = require('../utils/removeFiles')
+const { removeFiles } = require('../../services/file')
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -95,15 +96,11 @@ module.exports = {
 	/*-----------------delete-------------------------*/
 	async deleteClass(req, res, next){
 		
-		const codeClass = parseInt(req.params.code_class) || undefined
-		const sqlGetClass = {
-			text: 'SELECT teacher FROM classes WHERE code_class = $1',
-			values: [codeClass]
-		}
+		const code_class = parseInt(req.params.code_class) || undefined;
 		
 		try{
 			
-			let result = await querySync(sqlGetClass);
+			let result = await classes.find({code_class}).execute();
 			
 			const policy = policyFor(req.user);
 			const subjectClass = subject('Class', {user_id: result.rows[0]?.teacher});
@@ -124,17 +121,14 @@ module.exports = {
 					   SELECT unnest(string_to_array(ma.attachment[1], '')) FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE m.class = $1
 					   UNION
 					   SELECT unnest(aa.content[1:][1]) FROM ass_answers aa INNER JOIN matt_ass ma ON aa.id_matt_ass = ma.id_matt_ass INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE m.class = $1`,
-				values: [codeClass]
+				values: [code_class]
 			}
 			
 			let { rows: filesOfClass } = await querySync(getFilesSql)
 			filesOfClass = filesOfClass.map(e=>({path: path.join(config.rootPath, `public/document/${e.unnest}`)}))
 			
-			const remove = {
-				text: 'DELETE FROM classes WHERE code_class = $1 RETURNING *',
-				values: [codeClass]
-			}
-			result = await querySync(remove);
+			result = await classes.delete({ code_class });
+			
 			removeFiles(filesOfClass) //removing documents of class
 			
 			return res.json({

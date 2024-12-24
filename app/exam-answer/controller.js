@@ -1,11 +1,14 @@
-const { querySync } = require('../../database');
+const { querySync } = require('../../services/query');
+const exam_answers = require('../../services/table')('exam_answers');
 const { validationResult } = require('express-validator');
 const path = require('path');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
-const removeFiles = require('../utils/removeFiles');
+const toSqlArray = require('../utils/toSqlArray');
+const appError = require('../utils/appError');
 const config = require('../../config');
 const fs = require('fs')
+const searchFileOfArrays = require('../utils/searchFileOfArrays');
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -47,7 +50,15 @@ module.exports = {
 				}
 				
 				sql = {
-					text: 'SELECT ea.*, (SELECT count(*) FROM exam_answer_comments WHERE id_exm_ans = ea.id_exm_ans) total_comments, to_jsonb(e.*) exam, to_jsonb(c.*) class FROM exam_answers ea INNER JOIN exams e ON ea.id_exm=e.id_exm INNER JOIN classes c ON e.code_class=c.code_class WHERE ea.id_exm = $1 AND ea.user_id = $2',
+					text: `SELECT 
+						ea.*, 
+						(SELECT count(*) FROM exam_answer_comments WHERE id_exm_ans = ea.id_exm_ans) total_comments,
+						to_jsonb(e.*) exam, 
+						to_jsonb(c.*) class 
+						FROM exam_answers ea 
+						INNER JOIN exams e ON ea.id_exm=e.id_exm 
+						INNER JOIN classes c ON e.code_class=c.code_class 
+						WHERE ea.id_exm = $1 AND ea.user_id = $2`,
 					values: [idExm || undefined, req.user.user_id]
 				}
 				
@@ -75,108 +86,53 @@ module.exports = {
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
 		
-		const id_exm_ans = parseInt(req.params.id_exm_ans);
-		try{
-			//authorize
-			let sql = {
-				text: 'SELECT c.teacher FROM exam_answers ea INNER JOIN exams e ON ea.id_exm=e.id_exm INNER JOIN classes c ON e.code_class=c.code_class WHERE ea.id_exm_ans=$1',
-				values: [id_exm_ans || undefined]
-			}
-			let { rows: examAnsData } = await querySync(sql);
-			
-			const policy = policyFor(req.user);
-			const subjectExam = subject('Exam_answer',{user_id: examAnsData[0]?.teacher});
-			
-			if(!policy.can('readsingle',subjectExam)){
-				
-				sql = {
-					text: 'SELECT * FROM exam_answers WHERE id_exm_ans = $1',
-					values: [id_exm_ans || undefined]
-				}
-				let { rows: examAnsData2 } = await querySync(sql)
-				
-				const subjectExam2 = subject('Exam_answer',{user_id: examAnsData2[0]?.user_id});
-				
-				if(!policy.can('readsingle',subjectExam2)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to get this exam answer"
-					})
-				}
-			}
-			
-			sql = {
-				text: 'SELECT ea.*, to_jsonb(e.*) exam, to_jsonb(c.*) class FROM exam_answers ea INNER JOIN exams e ON ea.id_exm=e.id_exm INNER JOIN classes c ON e.code_class=c.code_class WHERE ea.id_exm_ans=$1',
-				values: [id_exm_ans || undefined]
-			}
-			let { rows: examAnsData3 } = await querySync(sql);
-			res.json({data: examAnsData3})
-			
-		}catch(err){
-			console.log(err)
-			next(err);
-		}
+		res.json({data: req.data})
 		
 	},
 	
 	/*-----------------add-------------------------*/
 	async addAnswer(req, res, next){
 		
-		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Exam_answer')){
-			
-			removeFiles([req.file]);
-			
-			return res.json({
-				error: 1,
-				message: 'You have no access to a exam answer'
-			})
-		}
-		
-		const errInsert = validationResult(req);
-		
-		let { id_exm } = req.body;
-		let content = []
-		if(req.file){
-			content[0] = req.file.filename
-			content[1] = req.file.originalname
-		}
-		
-		if(!errInsert.isEmpty()){
-			
-			removeFiles([req.file]);
-			
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
 		try{
-			//checking the user's answers
-			let sql = {
-				text: 'SELECT * FROM exam_answers WHERE user_id=$1 AND id_exm = $2',
-				values: [req.user?.user_id, id_exm]
-			}
-			const getUser = await querySync(sql)
 			
-			if(getUser.rowCount){//update
+			const { errorFromField, body, file, user } = req;
+			
+			const errInsert = validationResult(req);
+			
+			if(!errInsert.isEmpty()){
 				
-				content = content.length? `{${JSON.stringify(content).replace('[', '{').replace(']', '}')}}`: undefined
-				sql = {
-					text: 'UPDATE exam_answers SET content = content || $1 WHERE id_exm_ans = $2 RETURNING *',
-					values: [ content, getUser.rows[0].id_exm_ans ]
-				}
-				const updateData = await querySync(sql);
-				return res.json({
-					data: updateData.rows
-				})
+				const err = appError('Insert', 200);
+				err.field = errInsert.mapped();
+				
+				throw err;
 			}
 			
-			content = content.length? `{${JSON.stringify(content).replace('[', '{').replace(']', '}')}}`: undefined
+			//get error from field
+			if(errorFromField) throw appError(errorFromField.message, errorFromField.status);
+		
+			let { id_exm } = body;
+			let content = [];
+			if(file){
+				content[0] = file.filename
+				content[1] = file.originalname
+			}
+			
+			//checking the user's answers
+			const where = {
+				user_id: user?.user_id,
+				id_exm: id_exm
+			}
+			const getUser = await exam_answers.find(where).execute();
+			
+			content = toSqlArray(content)
+			
+			if(getUser.rowCount){
+				throw appError('The answer has been added', 200);
+			}
+			
 			sql = {
 				text: 'INSERT INTO exam_answers(content, id_exm, user_id) VALUES($1, $2, $3) RETURNING *',
-				values: [ content, id_exm, req.user?.user_id ]
+				values: [ content, id_exm, user?.user_id ]
 			}
 			
 			//insert
@@ -187,9 +143,6 @@ module.exports = {
 			})
 			
 		}catch(err){
-			
-			removeFiles([req.file]);
-			
 			next(err)
 		}
 	},
@@ -289,62 +242,18 @@ module.exports = {
 	*/
 	async getAttachment(req, res, next){
 		
-		const policy = policyFor(req.user)
-		const id_exm_ans = parseInt(req.params.id_exm_ans)
-		const filename = req.params.filename
-		
-		//student auth
-		let sql = {
-			text: "SELECT user_id FROM exam_answers WHERE id_exm_ans = $1",
-			values: [id_exm_ans || undefined]
-		}
-		const { rows: studentData } = await querySync(sql)
-		let subjectExamAns = subject('Exam_answer', { user_id: studentData[0]?.user_id})
-		
-		if(!policy.can('readsingle', subjectExamAns)){
+		try{
 			
-			//teacher auth
-			let sql = {
-				text: `SELECT c.teacher FROM exam_answers ea 
-					   INNER JOIN exams e ON ea.id_exm = e.id_exm
-					   INNER JOIN classes c ON e.code_class = c.code_class
-					   WHERE id_exm_ans = $1`,
-				values: [id_exm_ans || undefined]
-			}
-			const { rows: teacherData } = await querySync(sql)
-			subjectExamAns = subject('Exam_answer', { user_id: teacherData[0]?.teacher})
+			const data = req.data?.[0]?.content? [req.data?.[0]?.content]: [];
 			
-			if(!policy.can('readsingle', subjectExamAns)){
-				return res.json({
-					error: 1,
-					message: "You're not allowed to read this attachment"
-				})
-			}
+			await searchFileOfArrays(data, req.params.filename)
 			
+			res.json({
+				path: `/private/document/${req.user.user_id}/${req.params.filename}`
+			})
+		}catch(err){
+			next(err)
 		}
-		
-		sql = {
-			text: "SELECT user_id FROM exam_answers WHERE id_exm_ans = $1 AND $2 = ANY(content)",
-			values: [id_exm_ans || undefined, filename]
-		}
-		const fileData = await querySync(sql)
-		
-		if(fileData.rowCount){
-			
-			const filePath = path.join(config.rootPath, `/public/document/${filename}`)
-			if(fs.existsSync(filePath)){
-				return res.sendFile(filePath,{
-					headers: {
-						'Content-Disosition': `inline; filename=${filename}`
-					}
-				})
-			}
-		}
-		
-		return res.json({
-			error: 1,
-			message: "File not found"
-		})
 		
 		
 	}

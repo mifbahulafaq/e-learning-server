@@ -1,20 +1,24 @@
-const { querySync } = require('../../database');
 const { validationResult } = require('express-validator');
 const path = require('path');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
-const removeFiles = require('../utils/removeFiles');
+const searchFileOfArrays = require('../utils/searchFileOfArrays');
+const toSqlArray = require('../utils/toSqlArray');
+const appError = require('../utils/appError');
 const config = require('../../config');
-const fs = require('fs')
+const fs = require('fs');
+
+const { querySync } = require('../../services/query');
+const ass_answers = require('../../services/table')('ass_answers');
 
 module.exports = {
 	/*-----------------get-------------------------*/
 	async getByAss(req, res, next){
 		
-		const id_matt_ass = parseInt(req.params.id_matt_ass)
-		const policy = policyFor(req.user);
-		
 		try{
+			
+			const id_matt_ass = parseInt(req.params.id_matt_ass)
+			const policy = policyFor(req.user);
 			
 			let sql = {
 				text: 'SELECT c.teacher FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter INNER JOIN classes c ON m.class = c.code_class WHERE ma.id_matt_ass=$1',
@@ -49,7 +53,7 @@ module.exports = {
 				if(new Date() < scheduleOfMatter){
 					return res.json({
 						error: 1,
-						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
+						message: "You can only get the data when the time enters the schedule of the matter " + scheduleOfMatter.toLocaleString("en-US")
 					})
 				}
 				
@@ -81,7 +85,6 @@ module.exports = {
 			res.json({data: teacherData})
 			
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 	},
@@ -89,107 +92,48 @@ module.exports = {
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
 		
-		const id_ass_ans = parseInt(req.params.id_ass_ans);
-		try{
-			//authorize
-			let sql = {
-				text: 'SELECT c.teacher, m.schedule FROM ass_answers aa INNER JOIN matt_ass ma ON aa.id_matt_ass=ma.id_matt_ass INNER JOIN matters m ON ma.id_matt=m.id_matter INNER JOIN classes c ON m.class=c.code_class WHERE aa.id_ass_answer=$1',
-				values: [id_ass_ans || undefined]
-			}
-			let { rows: assAnswerData } = await querySync(sql);
-			
-			const policy = policyFor(req.user);
-			const subjectAssAns = subject('Assignment_answer',{user_id: assAnswerData[0]?.teacher});
-			
-			//checking teacher
-			if(!policy.can('readsingle',subjectAssAns)){
-				
-				sql = {
-					text: 'SELECT * FROM ass_answers WHERE id_ass_answer = $1',
-					values: [id_ass_ans || undefined]
-				}
-				let { rows: assAnswerData2 } = await querySync(sql)
-				
-				const subjectAssAns2 = subject('Assignment_answer',{user_id: assAnswerData2[0]?.user_id});
-				
-				if(!policy.can('readsingle',subjectAssAns2)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to read this single assignment answer"
-					})
-				}
-				
-				const scheduleOfMatter = assAnswerData[0]?.schedule? new Date(assAnswerData[0]?.schedule): undefined;
-				
-				if(new Date() < scheduleOfMatter){
-					return res.json({
-						error: 1,
-						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
-					})
-				}
-			}
-			
-			sql = {
-				text: `SELECT aa.*, to_jsonb(u.*) user, to_jsonb(ma.*) assignment FROM ass_answers aa
-						INNER JOIN  "users" u ON aa.user_id =u.user_id 
-						INNER JOIN matt_ass ma ON aa.id_matt_ass=ma.id_matt_ass WHERE aa.id_ass_answer=$1`,
-				values: [id_ass_ans || undefined]
-			}
-			let { rows: assAnswerData3 } = await querySync(sql);
-			res.json({data: assAnswerData3})
-			
-		}catch(err){
-			console.log(err)
-			next(err);
-		}
+		res.json({data: req.data});
 		
 	},
 	
 	/*-----------------add-------------------------*/
 	async addAnswer(req, res, next){
 		
-		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Assignment_answer')){
-			
-			removeFiles([req.file]);
-			
-			return res.json({
-				error: 1,
-				message: 'You have no access to add a assignment answer'
-			})
-		}
-		
-		const errInsert = validationResult(req);
-		
-		if(!errInsert.isEmpty()){
-			
-			removeFiles([req.file]);
-			
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
 		try{
-		
-			let { id_matt_ass } = req.body;
+			
+			const { user, errorFromField, file, body} = req;
+			
+			let policy = policyFor(user);
+			
+			if(!policy.can('create', 'Assignment_answer')) throw appError('You have no access to add a assignment answer', 200);
+			
+			const errInsert = validationResult(req);
+			
+			if(!errInsert.isEmpty()){
+				
+				const err = appError('Insert', 200);
+				err.field = errInsert.mapped();
+
+				throw err;
+			}
+			//get error from field
+			if(errorFromField) throw appError(errorFromField.message, errorFromField.status);
+			
+			let { id_matt_ass } = body;
 			let content = [
-				req.file.filename,
-				req.file.originalname
+				file.filename,
+				file.originalname
 			]
-			content = `{${JSON.stringify(content).replace('[', '{').replace(']', '}')}}`
+			
+			content = toSqlArray([content])
 			
 			//checking the user's answers
-			let sql = {
-				text: 'SELECT * FROM ass_answers WHERE user_id=$1 AND id_matt_ass = $2',
-				values: [req.user?.user_id, id_matt_ass]
-			}
-			const getUser = await querySync(sql)
+			const where = {user_id:  user?.user_id, id_matt_ass}
+			const getUser = await ass_answers.find(where).execute();
 			
 			if(getUser.rowCount){//update
 				
-				sql = {
+				let sql = {
 					text: 'UPDATE ass_answers SET content = content || $1 WHERE id_ass_answer = $2 RETURNING *',
 					values: [ content, getUser.rows[0].id_ass_answer ]
 				}
@@ -199,21 +143,15 @@ module.exports = {
 				})
 			}
 			
-			sql = {
-				text: 'INSERT INTO ass_answers(content, id_matt_ass, user_id) VALUES($1, $2, $3) RETURNING *',
-				values: [ content, id_matt_ass, req.user?.user_id ]
-			}
-			
-			//insert
-			const insertData = await querySync(sql);
+			//inserting..
+			const data = {content, id_matt_ass, user_id: user?.user_id}
+			const insertData = await ass_answers.insert(data);
 			
 			res.json({
 				data: insertData.rows
 			})
 			
 		}catch(err){
-			
-			removeFiles([req.file]);
 			
 			next(err)
 		}
@@ -265,73 +203,11 @@ module.exports = {
 	async getAttachment(req, res, next){
 		
 		try{
-			const policy = policyFor(req.user)
-			const id_ass_ans = parseInt(req.params.id_ass_ans)
-			const filename = req.params.filename
 			
-			
-			//teacher auth
-			sql = {
-				text: `SELECT c.teacher, m.schedule FROM ass_answers aa 
-					   INNER JOIN matt_ass ma ON aa.id_matt_ass = ma.id_matt_ass
-					   INNER JOIN matters m ON ma.id_matt = m.id_matter
-					   INNER JOIN classes c ON m.class = c.code_class
-					   WHERE aa.id_ass_answer = $1`,
-				values: [id_ass_ans || undefined]
-			}
-			const { rows: teacherData } = await querySync(sql)
-			let subjectExamAns = subject('Assignment_answer', { user_id: teacherData[0]?.teacher})
-			
-			if(!policy.can('readsingle', subjectExamAns)){
-				
-				//student auth
-				let sql = {
-					text: "SELECT user_id FROM ass_answers WHERE id_ass_answer = $1",
-					values: [id_ass_ans || undefined]
-				}
-				const { rows: studentData } = await querySync(sql)
-				subjectExamAns = subject('Assignment_answer', { user_id: studentData[0]?.user_id})
-				
-				if(!policy.can('readsingle', subjectExamAns)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to read this attachment"
-					})
-				}
-				
-				const scheduleOfMatter = teacherData[0]?.schedule? new Date(teacherData[0]?.schedule): undefined;
-				
-				if(new Date() < scheduleOfMatter){
-					return res.json({
-						error: 1,
-						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
-					})
-				}
-				
-			}
-			
-			sql = {
-				text: 'SELECT content FROM ass_answers WHERE id_ass_answer = $1 AND $2 = ANY(content)',
-				values: [id_ass_ans || undefined, filename]
-			} 
-			const fileData = await querySync(sql)
-			
-			if(fileData.rowCount){
-			
-				const filePath = path.join(config.rootPath, `/public/document/${filename}`)
-				if(fs.existsSync(filePath)){
-					
-					return res.sendFile(filePath,{
-						headers: {
-							'Content-Disosition': `inline; filename=${filename}`
-						}
-					})
-				}
-			}
+			await searchFileOfArrays(req.data?.[0]?.content, req.params.filename)
 			
 			res.json({
-				error: 1,
-				message: "File not found"
+				path: `/private/document/${req.user.user_id}/${req.params.filename}`
 			})
 			
 		}catch(err){

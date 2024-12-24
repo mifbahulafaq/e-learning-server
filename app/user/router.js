@@ -5,7 +5,7 @@ const { uploadPhoto } = require('../../config')
 const { body } = require('express-validator')
 const bcrypt = require('bcrypt')
 const HASH_ROUND = 10
-const { querySync } = require('../../database')
+const { querySync } = require('../../services/query');
 
 const lengthMsg = "Must be greater than 3 and less than 255 character"
 const emailMsg = "Invalid Email"

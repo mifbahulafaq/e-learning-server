@@ -1,12 +1,7 @@
-const { queryAsync, querySync } = require('../../database');
-const path = require('path');
 const { validationResult } = require('express-validator');
-const removeFiles = require('../utils/removeFiles');
 const passport = require('passport');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const config = require('../../config');
-const qs = require('qs')
 
 //services
 const authService = require('./service')
@@ -185,12 +180,11 @@ module.exports = {
 		const errInsert = validationResult(req);
 		
 		if(!errInsert.isEmpty()){
-			if(req.file) removeFiles([req.file]);
 			
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
+			const err = appError('Insert', 200);
+			err.field = errInsert.mapped();
+			
+			throw err;
 		}
 		
 		try{

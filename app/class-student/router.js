@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const multer = require('multer');
 const { body } = require('express-validator');
-const { querySync } = require('../../database');
+const { querySync } = require('../../services/query');
 
 const isArrayMsg = "Input isn't a Array";
 const noEmptyMsg = 'This field must be filled';

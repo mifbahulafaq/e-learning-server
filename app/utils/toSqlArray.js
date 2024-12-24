@@ -1,0 +1,1 @@
+module.exports = arr=>arr && Array.isArray(arr)? JSON.stringify(arr).replace(/\[/g,'{').replace(/\]/g,'}'): null;;

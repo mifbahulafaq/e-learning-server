@@ -2,7 +2,7 @@ const qs = require('qs')
 const jwt = require('jsonwebtoken')
 const axios = require('axios')
 const config = require('../../config')
-const { querySync } = require('../../database')
+const { querySync } = require('../../services/query');
 
 //services
 const userService = require('../user/service');
@@ -10,7 +10,6 @@ const emailService = require('../../services/email');
 
 //utils
 const appError = require('../utils/appError');
-const sqlGet = require('../utils/sqlGet');
 const cipher = require('../utils/cipher');
 const decipher = require('../utils/decipher');
 
@@ -96,7 +95,7 @@ module.exports = {
 			
 			const user = insertingResult.rows[0];
 			
-			if(!user) throw appError(errorMessage, 200); 
+			if(!user) throw appError(errorMessage, 500); 
 			
 			//create token
 			const { user_id, email } = user;
@@ -181,7 +180,7 @@ module.exports = {
 			
 			if(verifiedEmail.rowCount) throw appError('Email has been verified', errorStatus);
 			
-			const updateData = { verified: 't', provider: 'Google', token: null};
+			const updateData = { verified: 't', token: null};
 			
 			const userData = await userService.updateUser({user_id: user?.user_id, verified: false}, updateData)
 			

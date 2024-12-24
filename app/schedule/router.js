@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { querySync } = require('../../database')
+const { querySync } = require('../../services/query');
 const multer = require('multer');
 const { check } = require('express-validator');
 const moment = require('moment');

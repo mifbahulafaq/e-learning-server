@@ -1,11 +1,13 @@
 const router = require('express').Router();
 const multer = require('../../middlewares/upload');
+const fileToBody = require('../../middlewares/locateFile');
 const { body } = require('express-validator');
 const moment = require('moment');
-const { querySync } = require('../../database');
+const { querySync } = require('../../services/query');
 const { uploadDoct } = require('../../config');
 
 const isIntMessage = "Input must be a integer";
+const isNullMessage = "Input must be null"
 const noEmptyMsg = 'This field must be filled';
 const lengthMsg = 'Must be less than 255 or greater than 5 characters long';
 const lengthMsg255 = 'Must be less than 255 characters long';
@@ -19,27 +21,42 @@ const addValid = [
 ]
 const editValid = [
 	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
+	// body('attachment').if(body('attachment').exists()).if(body('attachment').not().isObject()).custom(isNull)
+	// .withMessage(isObjectOrNnull),
+	body('attachment').if(body('attachment').exists()).customSanitizer(nullSanitizer).custom(isNull).withMessage(isNullMessage),
 	body('schedule').if(body('schedule').exists()).custom(isDate),
-	body('code_class').if(body('code_class').exists()).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine)
+	// body('code_class').if(body('code_class').exists()).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine)
 ]
 
 const {
 	getByClass,
 	getSingle,
+	getAttachment,
 	create,
-	edit,
+	put,
 	remove
 } = require('./controller');
+const { singleExamAuthor } = require('./middleware');
 
 router.get('/exams/by-class/:code_class', getByClass);
-router.get('/exams/:id_exm', getSingle);
-router.post('/exams', multer(uploadDoct).single('attachment') ,addValid, create);
-router.put('/exams/:id_exm', multer(uploadDoct).single('attachment'), editValid, edit);
+router.get('/exams/:id_exm', singleExamAuthor, getSingle);
+router.get('/exams/:id_exm/:filename', singleExamAuthor, getAttachment);
+router.post('/exams', multer(uploadDoct).single('attachment'),  addValid, create);
+router.put('/exams/:id_exm', multer(uploadDoct).single('attachment'), editValid, put);
 router.delete('/exams/:id_exm', remove);
 
 module.exports = router;
 
 //custom validator
+function isNull(val){
+	
+	if(val !== null){
+		
+		throw new Error('Data must be null')
+	}
+	 
+	return true;
+}
 function isDate(value){ 
 	const isValid = moment(value, "YYYY-MM-DD HH:mm:ss", true).isValid();
 	if(!isValid){
@@ -73,4 +90,8 @@ async function isMine(codeClass, { req }){
 function notEmptyAttachment(v, { req }){
 	if(!req.file) throw new Error(noEmptyMsg);
 	return true
+}
+//custoom sanitizer
+ function nullSanitizer(value){
+	 return  value === 'null'? JSON.parse(value): value;
 }
