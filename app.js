@@ -12,7 +12,7 @@ const jwt = require('jsonwebtoken');
 //halo
 //import middlewares
 const middlewares = require('./middlewares');
-//import routers
+//import routerssaddsaas
 const { authRouter, apiRouter } = require('./routers')
 
 app.set('views', path.join(config.rootPath,'views'));
