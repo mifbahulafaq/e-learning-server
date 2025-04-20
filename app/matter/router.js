@@ -1,8 +1,11 @@
 const router = require('express').Router();
-const multer = require('../../middlewares/upload');
+const multer = require('../../middlewares/upload'); 
 const { uploadDoct } = require('../../config');
 const controller = require('./controller');
 const middleware = require('./middleware');
+
+//middleware
+// router.use('*', middleware.author)
 
 router.get(
 	'/matters/by-class/:code_class', 
@@ -10,25 +13,23 @@ router.get(
 );
 router.get(
 	'/matters/:id_matt', 
-	middleware.singleMatterAuthor, 
 	controller.getSingle
 );
 router.get(
 	'/matters/:id_matt/:filename', 
-	middleware.singleMatterAuthor, 
 	controller.getAttachment
 );
 router.post(
 	'/matters', 
 	multer(uploadDoct).array('attachment') ,
 	middleware.addingValid, 
-	controller.postMatter
+	controller.add
 );
 router.put(
 	'/matters/:id_matt',
 	 multer(uploadDoct).array('attachment'), 
 	middleware.editingValid, 
-	controller.putMatter
+	controller.edit
 );
 router.delete(
 	'/matters/:id_matt',

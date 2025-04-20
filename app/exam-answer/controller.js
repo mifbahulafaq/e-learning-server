@@ -14,11 +14,12 @@ module.exports = {
 	/*-----------------get-------------------------*/
 	async getByExam(req, res, next){
 		
-		const idExm = parseInt(req.params.id_exm) || undefined
-		const policy = policyFor(req.user);
-		
 		try{
 			
+			const idExm = parseInt(req.params.id_exm) || undefined
+			const policy = policyFor(req.user);
+			
+			//start processing teacher author
 			let sql = {
 				text: 'SELECT * FROM exams e INNER JOIN classes c ON e.code_class = c.code_class WHERE id_exm=$1',
 				values: [idExm]
@@ -28,7 +29,9 @@ module.exports = {
 			let subjectExamAns = subject('Exam_answer',{user_id: classData[0]?.teacher})
 			
 			if(!policy.can('read', subjectExamAns)){
-				
+			//end of processing teacher author
+			
+			//start processing student author
 				sql = {
 					text: 'SELECT * FROM exams WHERE id_exm=$1',
 					values: [idExm || undefined]
@@ -43,6 +46,8 @@ module.exports = {
 				subjectExamAns = subject('Exam_answer',{user_id: studentData[0]?.user})
 				
 				if(!policy.can('read', subjectExamAns)){
+				//end of processing student author
+				
 					return res.json({
 						error: 1,
 						message: "You're not allowed to get exam answers"
@@ -67,6 +72,12 @@ module.exports = {
 				
 			}
 			
+			const { opposite } = req.query;
+			
+			if(parseInt(opposite)){
+				
+			}
+			
 			sql = {
 				text: `SELECT ea.*, (SELECT count(*) FROM exam_answer_comments WHERE id_exm_ans = ea.id_exm_ans) total_comments, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user" FROM exam_answers ea
 					   INNER JOIN users u ON ea.user_id=u.user_id
@@ -78,7 +89,6 @@ module.exports = {
 			res.json({data: teacherData})
 			
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 	},

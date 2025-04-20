@@ -37,10 +37,11 @@ function queryAsync(){
 
 }
 async function querySync(){
-	let arrArgument = Array.from(arguments)
-	const start = Date.now();
 	
 	try{
+		
+		let arrArgument = Array.from(arguments)
+		const start = Date.now();
 		const result = await pool.query(...arrArgument);
 		const duration = `${Date.now() - start} ms`;
 		console.log(`executed query`, {
@@ -222,7 +223,7 @@ const proto = {
 			text: `DELETE FROM ${this.table} ${whereText} RETURNING *`,
 			values: [...whereValues]
 		}
-		console.log('halo', this.sql)
+		
 		return await this.exec('delete');
 	},
 }

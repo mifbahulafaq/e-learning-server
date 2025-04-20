@@ -28,7 +28,6 @@ module.exports = {
 			if(!policy.can('read', subjectClassDiscuss)){
 				
 				let studentResult = await querySync(studentSql);
-				console.log(studentResult.rows)
 				subjectClassDiscuss = subject('Class_discussion', {user_id: studentResult.rows[0]?.user})
 				
 				//student authorization
@@ -49,7 +48,6 @@ module.exports = {
 			res.json({data: result.rows})
 			
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 	},
@@ -96,35 +94,34 @@ module.exports = {
 	/*-----------------add-------------------------*/
 	async addClassDiscuss(req, res, next){
 		
-		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Class_discussion')){
-			return res.json({
-				error: 1,
-				message: 'You have no access to add a discussion'
-			})
-		}
-		
-		const errInsert = validationResult(req);
-		let { date, text, code_class } = req.body;
-		
-		if(!errInsert.isEmpty()){
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
-		const query = {
-			text: 'INSERT INTO class_discussions(date, text, class, "user") VALUES($1, $2, $3, $4) RETURNING *',
-			values: [date, text, code_class, req.user?.user_id]
-		}
 		try{
-			const result = await querySync(query);
-			res.json({
-				data: result.rows
-			})
+			let policy = policyFor(req.user);
+			if(!policy.can('create', 'Class_discussion')){
+				return res.json({
+					error: 1,
+					message: 'You have no access to add a discussion'
+				})
+			}
+			
+			const errInsert = validationResult(req);
+			let { date, text, code_class } = req.body;
+			
+			if(!errInsert.isEmpty()){
+				return res.json({
+					error: 1,
+					field: errInsert.mapped()
+				})
+			}
+			
+			const query = {
+				text: 'INSERT INTO class_discussions(date, text, class, "user") VALUES($1, $2, $3, $4) RETURNING *',
+				values: [date, text, code_class, req.user?.user_id]
+			}
+				const result = await querySync(query);
+				res.json({
+					data: result.rows
+				})
 		}catch(err){
-			console.log(err)
 			next(err)
 		}
 	},

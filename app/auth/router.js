@@ -1,77 +1,34 @@
 const router = require('express').Router();
 const multerMidd = require('../../middlewares/upload');
 const multer = require('multer');
-const { uploadPhoto} = require('../../config');
 const { body } = require('express-validator');
-const bcrypt = require('bcrypt');
+const { uploadPhoto} = require('../../config');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
-const HASH_ROUND = 10;
 const users = require('../../services/table')('users');
 const decodeToken = require('../../middlewares/decodeToken')
 
-const noEmptyMsg = 'This field must be filled';
-const lengthMsg = 'Must be greater than 255 or less than 5 characters long';
-const emailMsg = "Invalid Email"
-const authValidator = [
-	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
-	body('gender').notEmpty().bail().withMessage(noEmptyMsg).isIn(['Male','Female']),
-	body('email').notEmpty().bail().withMessage(noEmptyMsg).isEmail().withMessage(emailMsg).custom(emailUnique),
-	body('password')
-	.notEmpty().bail().withMessage(noEmptyMsg)
-	.isLength({min:3, max:255}).withMessage(lengthMsg)
-	.customSanitizer(pwdSanitizer),
-]
+const controller = require('./controller');
+const middleware = require('./middleware');
 
-const { 
-	register, 
-	login, 
-	refresh, 
-	google, 
-	logout, 
-	local, 
-	me, 
-	verifyEmail,
-	forgotPassword,
-	resetPassword
-} = require('./controller');
+passport.use(new LocalStrategy({usernameField: 'email'}, controller.local));
 
-passport.use(new LocalStrategy({usernameField: 'email'}, local));
-
-router.post('/login',multer().none(), login);
-router.get('/refresh', refresh);
-router.get('/oauth/google', google);
-router.post('/register',multerMidd(uploadPhoto).single('photo'),authValidator, register);
-router.get('/verify', decodeToken, verifyEmail);
+router.post('/login',multer().none(), controller.login);
+router.get('/refresh', controller.refresh);
+router.get('/oauth/google', controller.google);
+router.post('/register',multerMidd(uploadPhoto).single('photo'), middleware.authValidator, controller.register);
+router.get('/verify', decodeToken, controller.verifyEmail);
 //reset password
-router.post('/forgot-password', multer().none(), forgotPassword);
+router.post('/forgot-password', multer().none(), controller.forgotPassword);
 router.post(
 	'/reset-password', 
 	decodeToken, 
 	multer().none(), 
-	body('new_password').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg).customSanitizer(pwdSanitizer),
-	resetPassword
+	middleware.resetPassValidator,
+	controller.resetPassword
 );
 
-router.delete('/logout', decodeToken, logout);
-router.get('/me', decodeToken, me);
+router.delete('/logout', decodeToken, controller.logout);
+router.get('/me', decodeToken, controller.me);
 
 module.exports = router;
-
-//custom validator
- async function emailUnique(value){
-	 
-	try{
-
-		const result = await users.find({email: value}).execute();
-		
-		if(result.rowCount) return Promise.reject('Email is already used');
-		
-	}catch(err){
-		console.log(err.stack)
-	}
-}
-//custoom sanitizer
- async function pwdSanitizer(value){
-	 return  bcrypt.hashSync(value,HASH_ROUND);
-}

@@ -1,53 +1,9 @@
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 const { body } = require('express-validator');
-const moment = require('moment');
 const { querySync } = require('../../services/query');
 const matters = require('../../services/table')('matters');
-
-async function singleMatterAuthor(req, res, next){
-	
-	const id_matt = parseInt(req.params.id_matt) || undefined;
-	
-	try{
-		//get the main data and authorize
-		const query = {
-			text: 'SELECT m.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo FROM matters m INNER JOIN classes c ON m.class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE id_matter = $1',
-			values: [id_matt]
-		}
-		const { rows: matterData } = await querySync(query);
-		//authorize
-		
-		let subjectMatter = subject('Matter',{user_id: matterData[0]?.teacher});
-		const policy = policyFor(req.user);
-		
-		if(!policy.can('readsingle',subjectMatter)){
-			
-			let sqlGetStudent = {
-				text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
-				values: [matterData[0]?.class, req.user?.user_id]
-			}
-			const { rows: studentData} = await querySync(sqlGetStudent);
-			
-			subjectMatter = subject('Matter',{user_id: studentData[0]?.user});
-			
-			if(!policy.can('readsingle',subjectMatter)){
-				return res.json({
-					error: 1,
-					message: "You're not allowed to read this data"
-				})
-			}
-		}
-		
-		req.data = matterData;
-		next();
-
-	}catch(err){
-
-		next(err);
-		
-	}
-}
+const isDate2 = require('../utils/isDate2');
 
 const isIntMessage = "Input must be a integer";
 const isArrayMessage = "Input must be a array";
@@ -62,7 +18,7 @@ const addingValid = [
 	body('class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine),
 	body('status').notEmpty().bail().withMessage(noEmptyMsg).isIn(["active","inactive"]),
 	body('description').if(body('description').exists()).isLength({max:255}).withMessage(lengthMsg),
-	body('schedule').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
+	body('schedule').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate2),
 	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
 ]
 
@@ -73,13 +29,11 @@ const editingValid = [
 	.withMessage(isArrOrNnullMsg).bail().custom(checkExistingData),
 	body('status').if(body('status').exists()).isIn(["active","inactive"]),
 	body('description').if(body('description').exists()).isLength({max:255}).withMessage(lengthMsg),
-	body('schedule').if(body('schedule').exists()).custom(isDate),
+	body('schedule').if(body('schedule').exists()).custom(isDate2),
 	body('name').if(body('name').exists()).isLength({min:3, max:255}).withMessage(lengthMsg),
 ]
 
-
 module.exports = {
-	singleMatterAuthor,
 	addingValid,
 	editingValid
 }
@@ -125,14 +79,6 @@ function isNull(val){
 	throw new Error('Data must be null');
 	
 }
-function isDate(value){ 
-	const isValid = moment(value, "YYYY-MM-DD HH:mm:ss", true).isValid();
-	if(!isValid){
-		throw new Error(`the format of ${value} isn't date`);
-	}
-	return true;
-}
-function noWhitespace(v){return v.replace(/(^\s*)|(\s*$)/g, "")}
 
 async function isMine(codeClass, { req }){
 	

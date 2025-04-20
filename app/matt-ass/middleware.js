@@ -1,6 +1,7 @@
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 const { querySync } = require('../../services/query');
+const { body } = require('express-validator')
 
 async function singleAssignmentAuthor(req, res, next){
 	
@@ -69,6 +70,43 @@ async function singleAssignmentAuthor(req, res, next){
 	
 }
 
+//messages
+const notEmpty = "The field must be filled"
+const isInt = "The format must be integer and the minmax is 1 - 17280. is it in the correct format already?"
+const length255 = "Must be less than 255 character long"
+
+const addValidation = [
+	body('duration').if(body('duration').exists()).isInt({ min: 1, max: 17280 }).bail().withMessage(isInt),
+	body('title').notEmpty({ignore_whitespace:true}).bail().withMessage(notEmpty).isLength({max:255}).bail().withMessage(length255),
+	body('text').if(body('text').exists()).customSanitizer(ignoreWhitespace),
+	body('id_matt').notEmpty().bail().withMessage(notEmpty).isInt().bail().withMessage(isInt).custom(isMine)
+]
+
 module.exports = {
-	singleAssignmentAuthor
+	singleAssignmentAuthor,
+	addValidation
+}
+
+
+//custom sanitizer
+function ignoreWhitespace(val){
+	const regex = /[a-zA-Z]/
+	return regex.test(val)? val: undefined
+}
+
+//custom validation
+async function isMine(id_matt, { req }){
+	
+	let sql = {
+		text: "SELECT class FROM matters WHERE id_matter = $1",
+		values: [id_matt]
+	}
+	const singleMatter = await querySync(sql)
+	sql = {
+		text: "SELECT * FROM classes WHERE code_class = $1 AND teacher = $2",
+		values: [singleMatter.rows[0]?.class, req.user?.user_id]
+	}
+	const singleClass = await querySync(sql)
+	
+	if(!singleClass.rowCount) return Promise.reject("Id Matter isn't found")
 }

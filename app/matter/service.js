@@ -1,10 +1,89 @@
+const { validationResult } = require('express-validator');
+const moment = require('moment');
+const fs = require('fs');
+const path = require('path');
+const policyFor = require('../policy');
+const { subject } = require('@casl/ability');
+const config = require('../../config');
 const { querySync } = require('../../services/query');
 const matters = require('../../services/table')('matters');
 const fileService = require('../../services/file');
+//utils
 const toSqlArray = require('../utils/toSqlArray');
 const filterData = require('../utils/filterData');
+const searchFileOfArrays = require('../utils/searchFileOfArrays');
+const isFunc = require('../utils/isFunc');
+const appError = require('../utils/appError')
+const entityAuthor = require('../utils/entityAuthor')
 
 const matterColNames = ['schedule', 'name', 'description', 'attachment', 'class', 'status'];
+
+function singleAuthor(id_matt, user){
+	
+	const obj = {};
+	
+	obj.user_id = user.user_id;
+	obj.policy = policyFor(user);
+	obj.id_matt = id_matt;
+	obj.defined_err_msg = 'You have no access to the matter';
+	obj.success_statuscode = 200;
+	
+	//methods
+	obj.validate = function(subjectMatter, cb, data){
+		
+		let err = null
+		
+		if(!this.policy.can('readsingle', subjectMatter)) err = appError(this.defined_err_msg, this.success_statuscode);
+		
+		if(isFunc(cb)){
+			cb(data, err);
+			return;
+		}
+		
+		if(err) throw err;
+		
+		return data;
+	}
+	
+	obj.teacher = async function(cb){
+		
+		const query = {
+			text: 'SELECT c.teacher FROM matters m INNER JOIN classes c ON m.class=c.code_class WHERE id_matter = $1',
+			values: [this.id_matt]
+		}
+		const { rows: teacherData } = await querySync(query);
+		
+		let subjectMatter = subject('Matter',{user_id: teacherData[0]?.teacher});
+		
+		this.validate(subjectMatter, cb, teacherData);
+	}
+	
+	obj.student = async function(cb){
+		
+		let sqlGetStudent = {
+			text: 'SELECT cs.* FROM matters m INNER JOIN classes c ON m.class = c.code_class INNER JOIN class_students cs ON c.code_class = cs.class WHERE m.id_matter=$1 AND cs.user_id=$2',
+			values: [this.id_matt, this.user_id]
+		}
+		const { rows: studentData} = await querySync(sqlGetStudent);
+		
+		subjectMatter = subject('Matter',{user_id: studentData[0]?.user_id});
+		
+		return this.validate(subjectMatter, cb, studentData);
+	}
+	
+	return obj;
+	
+}
+
+function additionAuthor(user){
+	
+	entityAuthor(
+		user,
+		'create',
+		'Matter',
+		'You have no access to create a matter'
+	)
+}
 
 async function findByClass(qs, code_class){
 		
@@ -54,9 +133,29 @@ async function findByClass(qs, code_class){
 	return await querySync(sql);
 }
 
-async function create(allData){
+async function getSingle(id_matt){
+	
+	const query = {
+		text: 'SELECT m.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo FROM matters m INNER JOIN classes c ON m.class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE id_matter = $1',
+		values: [id_matt]
+	}
+		
+	return await querySync(query);
+	
+}
+
+async function create(req, allData){
 	
 	let { body, files } = allData;
+	const errInsert = validationResult(req);
+			
+	if(!errInsert.isEmpty()){
+		
+		const err = appError('insert', 200);
+		err.field = errInsert.mapped()
+		
+		throw err;
+	}
 
 	if(files){
 		body.attachment = toSqlArray(files.map(e=>[e.filename, e.originalname]))
@@ -68,9 +167,21 @@ async function create(allData){
 	
 }
 
-async function update(id_matter, alldatas){
+async function update(req, id_matter, alldatas){
 	
 	let { body, files } = alldatas;
+	
+	//validating...
+	const errUpdate = validationResult(req);
+	
+	if(!errUpdate.isEmpty()){
+		
+		const err = appError('update', 200);
+		err.field = errUpdate.mapped()
+		
+		throw err;
+		
+	}
 	
 	if(body.attachment !== undefined){
 		
@@ -112,8 +223,37 @@ async function update(id_matter, alldatas){
 	return resultUpdate;
 }
 
+async function getSingleAttachment(user_id, id_matt, filename){
+	
+	const { rows: singleMatter } = await this.getSingleMatter(id_matt);
+	
+	await searchFileOfArrays(singleMatter?.[0]?.attachment, filename);
+	
+	return `/private/document/${user_id}/${filename}`;
+	
+}
+
+async function deleteSingle(id_matter){
+	
+	//deleting..
+	let resultDelete = await matters.delete({ id_matter });
+	
+	//removing doc of deleted matter..
+	if(resultDelete.rowCount) {
+		let removedFiles = resultDelete.rows[0]?.attachment.map(e=>({path: path.join(config.rootPath,`public/document/${e[0]}`)}));
+		// removeFiles(removedFiles);
+		fileService.removeFiles(removedFiles);
+	}
+	
+	return resultDelete;
+	
+}
 module.exports = {
+	singleAuthor,
+	additionAuthor,
 	findByClass,
+	getSingle,
 	create,
-	update
+	update,
+	getSingleAttachment
 }

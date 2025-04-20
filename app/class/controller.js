@@ -1,42 +1,22 @@
-const { querySync } = require('../../services/query');
-const classes = require('../../services/table')('classes');
-const { validationResult } = require('express-validator');
-const moment = require('moment');
-const path = require('path')
-const config = require('../../config')
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
-const { removeFiles } = require('../../services/file')
+const service = require('./service');
 
 module.exports = {
 	/*-----------------get-------------------------*/
-	async getclasses(req, res, next){
-		
-		const policy = policyFor(req.user)
-			
-		if(!policy.can('read', 'Class')){
-			return res.json({
-				error: 1,
-				message: "You're not allowed to get this class data"
-			})
-		}
+	async get(req, res, next){
 		
 		try{
-			let sql_by_teacher = {
-				text: `SELECT c.*, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) teacher FROM classes c
-					   INNER JOIN users u ON c.teacher = u.user_id
-					   WHERE c.teacher = $1`,
-				values: [req.user.user_id]
-			}
 			
-			const result = await querySync(sql_by_teacher)
+			//authorizing...
+			service.getAuthor(req.user);
+			
+			//getting classes
+			const result = await service.get(req.user?.user_id)
 			
 			return res.json({
 				data: result.rows,
 				count: result.rowCount
 			})
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 	},
@@ -44,183 +24,101 @@ module.exports = {
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
 		
-		const codeClass = parseInt(req.params.code_class)
-		const { user_id } = req.user || {}
-		const policy = policyFor(req.user);
-		
-		// authorization student sql
-		const studentSql = {
-			text : `SELECT c.*, user_id, u.name AS userName, email, gender, photo FROM class_students cs 
-					INNER JOIN classes c ON c.code_class = cs.class
-					INNER JOIN users u ON c.teacher = u.user_id
-					WHERE "user" = $1 AND class = $2`,
-			values : [ user_id, codeClass || undefined]
-		}
-		// teacher student sql
-		const teacherSql = {
-			text: 'SELECT classes.*, user_id, users.name AS userName, email, gender, photo FROM classes JOIN users ON teacher = user_id WHERE code_class = $1',
-			values: [codeClass || undefined]
-		}
-		
 		try{
 			
-			const resultStudent = await querySync(studentSql)
-			let subjectClass = subject('Class',{user_id: resultStudent.rowCount? user_id: undefined});
+			const code_class = parseInt(req.params.code_class) || undefined;
+			const author = service.singleAuthor(code_class, req.user);
 			
-			//student authorization
-			if(!policy.can('readsingle', subjectClass)){
+			//authorizing..
+			author.teacher(async (data, err)=>{
 				
-				const resultTeacher = await querySync(teacherSql);
-				subjectClass = subject('Class',{user_id: resultTeacher.rows[0]?.teacher});
-				
-				//teacher authorization
-				if(!policy.can('readsingle',subjectClass)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to get this single class"
-					})
+				if(err){
+					try{
+						
+						await author.student();
+						
+					}catch(err){
+						return next(err)
+					}
 				}
-				res.json({data: resultTeacher.rows[0]})
 				
-			}
+				//getting single class..
+				const resultClass = await service.getSingle(code_class);
 			
-			return res.json({ data: resultStudent.rows[0]})
+				return res.json({ data: resultClass.rows[0]});
+				
+			});
 			
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 		
 	},
 	
 	/*-----------------delete-------------------------*/
-	async deleteClass(req, res, next){
-		
-		const code_class = parseInt(req.params.code_class) || undefined;
+	async delete(req, res, next){
 		
 		try{
 			
-			let result = await classes.find({code_class}).execute();
+			const code_class = parseInt(req.params.code_class) || undefined;
 			
-			const policy = policyFor(req.user);
-			const subjectClass = subject('Class', {user_id: result.rows[0]?.teacher});
+			const author = service.singleAuthor(code_class, req.user);
 			
-			if(!policy.can('delete', subjectClass)){
-				return res.json({
-					error: 1,
-					message: 'You cannot delete this class'
-				})
-			}
-			const getFilesSql = {
-				text: `SELECT unnest(string_to_array(attachment[1], '')) FROM exams WHERE code_class = $1
-					   UNION
-					   SELECT unnest(content[1:][1]) FROM exam_answers ea INNER JOIN exams e ON ea.id_exm = e.id_exm WHERE e.code_class = $1
-					   UNION
-					   SELECT unnest(attachment[1:][1]) FROM matters WHERE class = $1
-					   UNION
-					   SELECT unnest(string_to_array(ma.attachment[1], '')) FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE m.class = $1
-					   UNION
-					   SELECT unnest(aa.content[1:][1]) FROM ass_answers aa INNER JOIN matt_ass ma ON aa.id_matt_ass = ma.id_matt_ass INNER JOIN matters m ON ma.id_matt = m.id_matter WHERE m.class = $1`,
-				values: [code_class]
-			}
+			//authorizing..
+			await author.teacher();
 			
-			let { rows: filesOfClass } = await querySync(getFilesSql)
-			filesOfClass = filesOfClass.map(e=>({path: path.join(config.rootPath, `public/document/${e.unnest}`)}))
-			
-			result = await classes.delete({ code_class });
-			
-			removeFiles(filesOfClass) //removing documents of class
-			
+			//deleting data..
+			const result = await service.deleteSingle(code_class)
+				
 			return res.json({
 				message: 'Class data is successfully deleted',
 				data: result.rows[0]
 			})
 			
 		}catch(err){
+			
 			next(err);
 		}
 		
 	},
 	
 	/*-----------------add-------------------------*/
-	async addClass(req, res, next){
+	async add(req, res, next){
 		
-		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Class')){
-			return res.json({
-				error: 1,
-				message: 'You have no access to create a class'
-			})
-		}
-		
-		const errInsert = validationResult(req);
-		let { class_name, description, color } = req.body;
-		
-		if(!errInsert.isEmpty()){
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
-		const query = {
-			text: 'INSERT INTO classes(class_name, description, color, teacher) VALUES($1, $2, $3, $4) RETURNING *',
-			values: [class_name, description, color, req.user.user_id]
-		}
 		try{
-			const result = await querySync(query);
+			
+			//authorizing...
+			service.addClassAuthor(req);
+			
+			//adding class..
+			const result = await service.add(req);
+			
 			res.json({
 				data: result.rows
 			})
+			
 		}catch(err){
-			console.log(err)
+			
 			next(err)
+			
 		}
 	},
 	
 	/*-----------------edit-------------------------*/
-	async editClass(req, res, next){
+	async edit(req, res, next){
 		
 		try{
 			
-			let get = {
-				text: 'SELECT user_id FROM classes WHERE code_class = $1',
-				values: [req.params.code_class]
-			}
+			const code_class = req.params.code_class || undefined;
+			const author = service.singleAuthor(code_class, req.user);
 			
-			let result = await querySync(get);
+			//authorizing..
+			await author.teacher();
 			
-			const policy = policyFor(req.user);
-			const subjectClass = subject('Class', {user_id: result.rows[0]?.user_id});
+			//updating data...
+			const result = await service.editSingle(req, code_class);
 			
-			//authorization
-			if(!policy.can('update', subjectClass)){
-				return res.json({
-					error: 1,
-					message: "You can't update this class data"
-				})
-			}
-			
-			const errUpdate = validationResult(req);
-			
-			// body validation
-			if(!errUpdate.isEmpty()){
-				return res.json({
-					error: 1,
-					message: errUpdate.mapped()
-				})
-			}
-			
-			//update data
-			const { name, description } = req.body;
-			const update = {
-				text: "UPDATE classes SET name = $1, description = $2 WHERE code_class = $4 RETURNING *",
-				values: [name, description, req.params.code_class]
-			}
-			
-			result = await querySync(update);
-			
-			return res.json({
+			res.json({
 				data: result.rows
 			})
 			

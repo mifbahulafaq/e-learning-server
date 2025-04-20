@@ -9,23 +9,31 @@ const app = express();
 let config = require('./config');
 let port = config.port || 6000;
 const jwt = require('jsonwebtoken');
-//halo
+
 //import middlewares
 const middlewares = require('./middlewares');
-//import routerssaddsaas
+//import routers
 const { authRouter, apiRouter } = require('./routers')
 
 app.set('views', path.join(config.rootPath,'views'));
 app.set('view engine', 'ejs');
+
 //middlewares
-app.use(cookieParser())
-app.use(express.json())
+app.use(cookieParser());
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }))
 app.use(logger('dev'));
 app.use(cors({
     credentials: true,
 	origin: "http://localhost:3000"
   }))
+
+//test
+app.get('/test', function(req, res){
+	console.log(matterService)
+	res.send('test')
+})
+
 app.use('/auth',authRouter);
 app.use('/public/photo',express.static(path.join(__dirname, 'public/photo')))
 app.use(middlewares.decodeToken);
@@ -40,6 +48,8 @@ app.use((req,res,next)=>{
 	next(createError(404));
 })
 app.use(middlewares.errorHandling);
+
+const matterService = require('./app/matter/service');
 
 http.createServer(app)
 .listen(port,()=>{

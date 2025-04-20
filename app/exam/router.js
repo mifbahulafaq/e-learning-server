@@ -64,13 +64,6 @@ function isDate(value){
 	}
 	return true;
 }
-function noWhitespace(v){
-	
-	let input = v.replace(/(^\s*)|(\s*$)/g, "")
-	
-	return input.length? input: undefined
-
-}
 
 async function isMine(codeClass, { req }){
 	

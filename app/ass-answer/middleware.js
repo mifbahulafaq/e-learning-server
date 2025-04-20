@@ -1,6 +1,7 @@
 const policyFor = require('../policy');
 const { querySync } = require('../../services/query');
 const { subject } = require('@casl/ability');
+const { body } = require('express-validator');
 
 async function singleAssAnswerAuthor(req, res, next){
 	
@@ -53,6 +54,62 @@ async function singleAssAnswerAuthor(req, res, next){
 	}
 }
 
+const isIntMessage = "Input must be a integer";
+const noEmptyMsg = 'This field must be filled';
+
+const addValid = [
+	body('id_matt_ass').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).custom(isMine),
+	body('content').notEmpty().bail().withMessage(noEmptyMsg)
+]
+
 module.exports = {
-	singleAssAnswerAuthor
+	singleAssAnswerAuthor,
+	addValid
+}
+
+async function isMine(id_matt_ass, { req }){
+	
+	let sql ={
+		text: "SELECT m.class, ma.date, ma.duration FROM matt_ass ma INNER JOIN matters m ON ma.id_matt=m.id_matter WHERE ma.id_matt_ass=$1",
+		values: [id_matt_ass]
+	}
+	let getClass = await querySync(sql);
+	
+	if(getClass.rowCount){
+		
+		let { class: codeCLass, date, duration } = getClass.rows[0]
+		duration = parseInt(duration);
+		
+		sql = {
+			text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
+			values: [ codeCLass, req.user?.user_id]
+		}
+		
+		getStudent = await querySync(sql);
+		
+		if(getStudent.rowCount){
+			
+			if(duration){
+				
+				//convert the raw duration value to current time
+				const deadline = (new Date(date)).getTime() + duration;
+				
+				if(Date.now() > deadline){
+					//this code is to send a error to the ctrler and thrown there. if thrown here, will be error field, i won't wan that way to happen
+						req.errorFromField = {
+							message: 'You add an answer the exam since the time enters the deadline',
+							status: 200
+						}
+				}
+				
+			}
+			
+			
+			
+			return true
+		
+		}
+	}
+	
+	return Promise.reject("Id assignment isn't found");
 }
