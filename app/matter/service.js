@@ -1,88 +1,42 @@
 const { validationResult } = require('express-validator');
-const moment = require('moment');
-const fs = require('fs');
 const path = require('path');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
 const config = require('../../config');
 const { querySync } = require('../../services/query');
+const singleAuthorization = require('../../services/singleAuthorization');
 const matters = require('../../services/table')('matters');
 const fileService = require('../../services/file');
 //utils
 const toSqlArray = require('../utils/toSqlArray');
 const filterData = require('../utils/filterData');
 const searchFileOfArrays = require('../utils/searchFileOfArrays');
-const isFunc = require('../utils/isFunc');
 const appError = require('../utils/appError')
-const entityAuthor = require('../utils/entityAuthor')
 
 const matterColNames = ['schedule', 'name', 'description', 'attachment', 'class', 'status'];
 
-function singleAuthor(id_matt, user){
+async function teacherAuthor(id_matt, req, cb){
 	
-	const obj = {};
-	
-	obj.user_id = user.user_id;
-	obj.policy = policyFor(user);
-	obj.id_matt = id_matt;
-	obj.defined_err_msg = 'You have no access to the matter';
-	obj.success_statuscode = 200;
-	
-	//methods
-	obj.validate = function(subjectMatter, cb, data){
-		
-		let err = null
-		
-		if(!this.policy.can('readsingle', subjectMatter)) err = appError(this.defined_err_msg, this.success_statuscode);
-		
-		if(isFunc(cb)){
-			cb(data, err);
-			return;
-		}
-		
-		if(err) throw err;
-		
-		return data;
+	const query = {
+		text: 'SELECT c.teacher FROM matters m INNER JOIN classes c ON m.class=c.code_class WHERE id_matter = $1',
+		values: [id_matt]
 	}
+		
+	const { rows: teacherData } = await querySync(query);
 	
-	obj.teacher = async function(cb){
-		
-		const query = {
-			text: 'SELECT c.teacher FROM matters m INNER JOIN classes c ON m.class=c.code_class WHERE id_matter = $1',
-			values: [this.id_matt]
-		}
-		const { rows: teacherData } = await querySync(query);
-		
-		let subjectMatter = subject('Matter',{user_id: teacherData[0]?.teacher});
-		
-		this.validate(subjectMatter, cb, teacherData);
-	}
-	
-	obj.student = async function(cb){
-		
-		let sqlGetStudent = {
-			text: 'SELECT cs.* FROM matters m INNER JOIN classes c ON m.class = c.code_class INNER JOIN class_students cs ON c.code_class = cs.class WHERE m.id_matter=$1 AND cs.user_id=$2',
-			values: [this.id_matt, this.user_id]
-		}
-		const { rows: studentData} = await querySync(sqlGetStudent);
-		
-		subjectMatter = subject('Matter',{user_id: studentData[0]?.user_id});
-		
-		return this.validate(subjectMatter, cb, studentData);
-	}
-	
-	return obj;
+	return singleAuthorization('Matter', req.user, teacherData[0] || {}, cb);
 	
 }
 
-function additionAuthor(user){
+async function studentAuthor(id_matt, req, cb){
 	
-	entityAuthor(
-		user,
-		'create',
-		'Matter',
-		'You have no access to create a matter'
-	)
+	const user_id = req.user.user_id;
+	
+	let sqlGetStudent = {
+		text: 'SELECT cs.* FROM matters m INNER JOIN classes c ON m.class = c.code_class INNER JOIN class_students cs ON c.code_class = cs.class WHERE m.id_matter=$1 AND cs.user_id=$2',
+		values: [id_matt, user_id]
+	}
+	const { rows: studentData} = await querySync(sqlGetStudent);
+	
+	return singleAuthorization('Matter', req.user, studentData[0] || {}, cb);
 }
 
 async function findByClass(qs, code_class){
@@ -144,9 +98,9 @@ async function getSingle(id_matt){
 	
 }
 
-async function create(req, allData){
+async function create(req){
 	
-	let { body, files } = allData;
+	let { body, files } = req;
 	const errInsert = validationResult(req);
 			
 	if(!errInsert.isEmpty()){
@@ -249,8 +203,8 @@ async function deleteSingle(id_matter){
 	
 }
 module.exports = {
-	singleAuthor,
-	additionAuthor,
+	teacherAuthor,
+	studentAuthor,
 	findByClass,
 	getSingle,
 	create,

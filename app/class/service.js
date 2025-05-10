@@ -2,85 +2,29 @@ const { querySync } = require('../../services/query');
 const { validationResult } = require('express-validator');
 const classes = require('../../services/table')('classes');
 const class_students = require('../../services/table')('class_students');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
-const appError = require('../utils/appError')
-const isFunc = require('../utils/isFunc');
-const entityAuthor = require('../utils/entityAuthor');
+const appError = require('../utils/appError');
 const path = require('path');
 const config = require('../../config');
 const { removeFiles } = require('../../services/file');
+const singleAuthorization = require('../../services/singleAuthorization');
 const filterData = require('../utils/filterData');
 const classColumns = ['class_name', 'description', 'color', 'teacher'];
 
-function singleAuthor(code_class, user){
+async function teacherAuthor(code_class, req, cb){
 	
-	const obj = {};
+	let { rows: teacherData } = await classes.find({ code_class }).select('teacher').execute();
 	
-	obj.user_id = user.user_id;
-	obj.policy = policyFor(user);
-	obj.code_class = code_class;
-	obj.defined_err_msg = 'You have no access to the class';
-	obj.success_statuscode = 200;
+	return singleAuthorization('Class', req.user, teacherData[0] || {}, cb);
 	
-	//methods
-	obj.validate = function(subjectClass, cb, data){
-		
-		let err = null;
-		
-		if(!this.policy.can('readsingle', subjectClass)) err = appError(this.defined_err_msg, this.success_statuscode);
-		
-		if(isFunc(cb)){
-			cb(data, err);
-			return;
-		}
-		
-		if(err) throw err;
-		
-		return data;
-		
-	}
-	
-	obj.teacher = async function(cb){
-		
-		let { rows: teacherData } = await classes.find({code_class: this.code_class}).select('teacher').execute();
-		
-		const subjectClass = subject('Class',{user_id: teacherData[0]?.teacher});
-		
-		return this.validate(subjectClass, cb, teacherData);
-	}
-	
-	obj.student = async function(cb){
-		
-		const { rows: studentData } = await class_students.find({ class: this.code_class, user_id: this.user_id}).execute();
-		
-		const subjectClass = subject('Class',{user_id: studentData[0]?.user_id});
-		
-		return this.validate(subjectClass, cb, studentData);
-	}
-	
-	return obj;
 }
 
-function getAuthor(user){
+async function studentAuthor(code_class, req, cb){
 	
-	entityAuthor(
-		user,
-		'read',
-		'Class',
-		"You're not allowed to get this class data"
-	)
-			
-}
-function addAuthor(req){
+	const user_id = req.user?.user_id
 	
-	entityAuthor(
-		user,
-		'create',
-		'Class',
-		'You have no access to create a class'
-	)
+	const { rows: studentData } = await class_students.find({ class: code_class, user_id }).execute();
 	
+	return singleAuthorization('Class', req.user, studentData[0] || {}, cb);
 }
 
 async function get(user_id){
@@ -174,9 +118,8 @@ async function editSingle(req, code_class){
 	return await classes.update(filterData(['description', 'class_name'], req.body), { code_class }).execute();
 }
 module.exports = {
-	singleAuthor,
-	getAuthor,
-	addAuthor,
+	teacherAuthor,
+	studentAuthor,
 	get,
 	getSingle,
 	deleteSingle,

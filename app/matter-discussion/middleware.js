@@ -1,8 +1,10 @@
 const { body } = require('express-validator');
 const moment = require('moment');
+
 const { querySync } = require('../../services/query');
 const matters = require('../../services/table')('matters');
 const class_students = require('../../services/table')('class_students');
+const matterService = require('../matter/service');
 
 const noEmptyMsg = 'This field must be filled';
 const lengthMsg = 'Must be less than 255 characters long';
@@ -32,28 +34,21 @@ function isDate(input){
 }
 async function isMine(id_matt, {req}){
 	
-	let sql_get_teacher = {
-		text: 'SELECT * FROM matters INNER JOIN classes ON class = code_class WHERE id_matter = $1 AND teacher = $2',
-		values: [id_matt, req.user?.user_id]
-	}
+	//teacher authorizing..
 	
-	const getTeacher = await querySync(sql_get_teacher);
-	
-	if(!getTeacher.rowCount){
+	return await matterService.teacherAuthor(id_matt, req, async (teacherData, err)=>{
+		try{
+			
+			if(err) await matterService.studentAuthor(id_matt, req);
+			
+			return true
+			
+		}catch(err){
+			
+			return Promise.reject("Id matter isn't found");
+			
+		}
 		
-		const getClass = await matters
-		.find({ id_matter: id_matt })
-		.select('class')
-		.execute()
-		
-		const getStudent = await class_students
-		.find({ 
-			class: getClass.rows[0]?.class,
-			user: req.user?.user_id
-		})
-		.execute()
-		
-		if(!getStudent.rowCount) return Promise.reject("Id matter isn't found");
-	}
+	})
 	
 }

@@ -1,33 +1,47 @@
-const fileService = require('../../services/file');
-const filterData = require('../utils/filterData');
-const { querySync } = require('../../services/query');
 const { validationResult } = require('express-validator');
 const path = require('path');
 const fs = require('fs');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
-const { removeFiles } = require('../../services/file');
-const toSqlArray = require('../utils/toSqlArray');
-const appError = require('../utils/appError');
-const entityAuthor = require('../utils/entityAuthor')
 const config = require('../../config');
+
 const matt_ass = require('../../services/table')('matt_ass');
 const matters = require('../../services/table')('matters');
-const classes = require('../../services/table')('classes');
-const class_students = require('../../services/table')('class_students');
+const fileService = require('../../services/file');
+const { querySync } = require('../../services/query');
+const singleAuthorization = require('../../services/singleAuthorization');
+
+const filterData = require('../utils/filterData');
+const toSqlArray = require('../utils/toSqlArray');
+const appError = require('../utils/appError');
+
 
 const mattAssColNames = ['duration', 'title', 'text', 'id_matt', 'attachment'];
 
-function getAuthor(user){
+async function teacherAuthor(id_matt_ass, req, cb){
 	
-	entityAuthor(
-		user,
-		'readall',
-		'Matt_ass',
-		"You aren't allowed to access this resource"
-	)
+	let sql ={
+			
+		text: 'SELECT c.teacher FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter INNER JOIN classes c ON m.class = c.code_class WHERE ma.id_matt_ass = $1',
+		values: [id_matt_ass]
+	} 
 
+	const { rows: teacherData } =  await querySync(sql);
+	
+	return singleAuthorization('Matt_ass', req.user, teacherData[0] || {}, cb);
+	
 }
+
+async function studentAuthor(id_matt_ass, req, cb){
+	
+	let sql = {
+		text: 'SELECT cs.* FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter INNER JOIN class_students cs ON m.class = cs.class WHERE ma.id_matt_ass = $1 AND cs.user_id = $2',
+		values: [id_matt_ass, req.user?.user_id]
+	}
+	
+	const { rows: studentData } =  await querySync(sql);
+	
+	return singleAuthorization('Matt_ass', req.user, studentData[0] || {}, cb);
+}
+
 async function get(qs, user_id){
 	
 		let { by, status, class: aClass = "", skip, limit = 10} = qs
@@ -176,9 +190,19 @@ async function findByMatter(req, teacherRole, id_class_student){
 	return await querySync(sqlMattAssGetting())
 }
 
-async function create(allData){
+async function create(req){
 	
-	let { body, file } = allData;
+	const errInsert = validationResult(req);
+			
+	if(!errInsert.isEmpty()){
+		
+		const err = appError('Insert', 200);
+		err.field = errInsert.mapped();
+		
+		throw err;
+	}
+	
+	let { body, file } = req;
 	
 	if(file){
 		
@@ -239,10 +263,100 @@ async function update(id_matter, alldatas){
 	
 	return resultUpdate;
 }
+async function getSingle(req, isTeacher){
+	
+	const id_matt_ass = parseInt(req.params.id_matt_ass) || undefined;
+	
+	let additionalSql = {
+		text: "",
+		values: [id_matt_ass]
+	}
+	
+	if(!isTeacher){
+		additionalSql.text = "AND user_id = $2" 
+		additionalSql.values = [id_matt_ass, req.user?.user_id]
+	}
+	
+	let singleReadSql = {
+		text: `SELECT m.schedule schedule_of_matter, ma.*, json_build_object('user_id', u.user_id, 'email', u.email, 'gender', u.gender, 'name', u.name, 'photo', u.photo) teacher,
+		(SELECT count(*) FROM ass_answers WHERE id_matt_ass = $1 ${additionalSql.text}) total_answers
+		FROM matt_ass ma 
+			   INNER JOIN matters m ON ma.id_matt = m.id_matter
+			   INNER JOIN classes c ON m.class = c.code_class
+			   INNER JOIN users u ON c.teacher = u.user_id 
+			   WHERE id_matt_ass = $1`,
+		values: additionalSql.values
+	}
+	
+	const { rows: data } =  await querySync(singleReadSql);
+	
+	const scheduleOfMatter = data[0]?.schedule_of_matter? new Date(data[0]?.schedule_of_matter): undefined;
+			
+	if(new Date() < scheduleOfMatter) {
+		throw appError(
+			"You can only get the data when the time enters the schedule of the matterial " + scheduleOfMatter.toLocaleString("en-US"), 
+			200
+		);
+	}
+			
+	return data
+	
+}
+
+async function getSingleAttachment(req){
+	
+	
+	const id_matt_ass = parseInt(req.params.id_matt_ass) || undefined;
+	
+	let sql = {
+		text: 'SELECT m.schedule schedule_of_matter, ma.* FROM matt_ass ma INNER JOIN matters m ON m.id_matter = ma.id_matt WHERE ma.id_matt_ass = $1 AND $2 = ANY(ma.attachment)',
+		values: [id_matt_ass, req.params.filename]
+	}
+	let { rows: data } = await querySync(sql);
+	
+	if(data.length){
+		
+		const scheduleOfMatter = data[0]?.schedule_of_matter? new Date(data[0]?.schedule_of_matter): undefined;
+		
+		if(new Date() < scheduleOfMatter) {
+			throw appError(
+				"You can only get the data when the time enters the schedule of the matterial " + scheduleOfMatter.toLocaleString("en-US"), 
+				200
+			);
+		}
+		
+		const filePath = path.join(config.rootPath, `public/document/${req.params.filename}`);
+		
+		if(fs.existsSync(filePath)) return `/private/document/${req.user.user_id}/${req.params.filename}`
+	}
+	
+	throw appError("File's not found", 200);
+}
+
+async function remove(id_matt_ass){
+	
+	let resultDeleting = await matt_ass.delete({ id_matt_ass });
+	
+	if(resultDeleting.rowCount) {
+		let filePath = {
+			path: path.join(config.rootPath,`public/document/${resultDeleting.rows[0]?.attachment[0]}`)
+		}
+		
+		
+		fileService.removeFiles([filePath]);
+	}
+	
+	return resultDeleting;
+}
 
 module.exports = {
+	teacherAuthor,
+	studentAuthor,
 	get,
 	findByMatter,
 	create,
-	update
+	update,
+	getSingle,
+	remove,
+	getSingleAttachment
 }

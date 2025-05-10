@@ -67,7 +67,7 @@ module.exports = {
 			if(!policy.can('read', subjectExam)){
 				
 				let sqlGetStudent = {
-					text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
+					text: 'SELECT * FROM class_students WHERE class=$1 AND user_id=$2',
 					values: [code_class, req.user?.user_id]
 				}
 				

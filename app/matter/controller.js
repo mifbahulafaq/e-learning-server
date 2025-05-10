@@ -8,26 +8,25 @@ module.exports = {
 		try{
 			
 			const code_class = parseInt(req.params.code_class) || undefined;
-			const author = classService.singleAuthor(code_class, req.user);
 			
 			//authorizing..
-			author.teacher(async (data, err)=>{
+			await classService.teacherAuthor(req, async (code_class, teacherData, err)=>{
 				
-				if(err){
-					try{
-						
-						await author.student();
-						
-					}catch(err){
-						return next(err)
-					}
+				try{
+				
+					if(err) await classService.studentAuthor(code_class, req);
+					
+					//get matter data by class
+					const { rows: matterData } = await matterService.findByClass(req.query, code_class);
+					
+					//response
+					res.json({data: matterData})
+					
+				}catch(err){
+					
+					next(err)
+					
 				}
-				
-				//get matter data by class
-				const { rows: matterData } = await matterService.findByClass(req.query, code_class);
-				
-				//response
-				res.json({data: matterData})
 				
 			});
 			
@@ -40,38 +39,36 @@ module.exports = {
 	async getSingle(req, res, next){
 		
 		try{
-		
+					
 			const id_matt = parseInt(req.params.id_matt) || undefined;
-			const author = matterService.singleAuthor(id_matt, req.user);
 			
 			//authorizing...
-			author.teacher(async (data, err)=>{
+			await matterService.teacherAuthor(id_matt, req, async (teacherData, err)=>{
 				
-				if(err){
+				try{
+				
+					if(err) await matterService.studentAuthor(id_matt, req);
 					
-					try{
-						
-						await author.student();
-						
-					}catch(err){
+					//getting single matter...
 					
-						return next(err);
-					}
+					const result = await matterService.getSingle(id_matt);
+						
+					res.json({
+						data: result.rows
+					})
+				}catch(err){
+					
+					next(err)
 					
 				}
-				
-				//getting single matter...
-				const result = await matterService.getSingle(id_matt);
-					
-				res.json({
-					data: result.rows
-				})
 				
 				
 			});
 			
 		}catch(err){
+			
 			next(err)
+			
 		}
 		
 		
@@ -83,26 +80,24 @@ module.exports = {
 		try{
 			
 			const id_matt = parseInt(req.params.id_matt) || undefined;
-			const author = matterService.singleAuthor(id_matt, req.user);
 			
 			//authorizing...
-			author.teacher(async (data, err)=>{
+			await matterService.teacherAuthor(req, async (id_matt, teacherData, err)=>{
 				
-				if(err){
-				
-					try{
-						await author.student();
-					}catch(err){
-						return next(err)
-					}
-				
+				try{
+					
+					if(err) await matterService.studentAuthor(id_matt, req);
+					
+					//getting the path of single attachment...
+					const path = await matterService.getSingleAttachment(req.user.user_id, id_matt, req.params.filename)
+					
+					res.json({ path })
+					
+				}catch(err){
+					
+					next(err)
+					
 				}
-				
-				
-				//getting the path of single attachment...
-				const path = await matterService.getSingleAttachment(req.user.user_id, id_matt, req.params.filename)
-				
-				res.json({ path })
 				
 			});
 			
@@ -116,11 +111,6 @@ module.exports = {
 	async add(req, res, next){
 		
 		try{
-			
-			//authorizing...
-			matterService.additionAuthor(req.user);
-	
-			const { body, files } = req;
 			
 			//adding new data...
 			const result = await matterService.create(req, {body, files});
@@ -140,14 +130,13 @@ module.exports = {
 		
 		try{
 			
-			const { user, params, body, files } = req;
+			const { params, body, files } = req;
 			
 			const id_matter = parseInt(params.id_matt) || undefined;
-			const author = matterService.singleAuthor(id_matter, user);
 			const alldatas = { body, files }
 			
 			//authorizing...
-			await author.teacher();
+			await matterService.teacherAuthor(id_matter, req);
 			
 			//updating....
 			const resultUpdate = await matterService.update(req, id_matter, alldatas);
@@ -165,10 +154,9 @@ module.exports = {
 		
 		try{
 			const id_matt = parseInt(req.params.id_matt) || undefined;
-			const author = matterService.singleAuthor(id_matt, req.user);
 			
 			//authorizing...
-			 await author.teacher();
+			 await matterService.teacherAuthor(id_matt, req);
 			
 			//deleting..
 			const resultDelete = await matterService.deleteSingle(id_matt);

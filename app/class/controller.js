@@ -6,9 +6,6 @@ module.exports = {
 		
 		try{
 			
-			//authorizing...
-			service.getAuthor(req.user);
-			
 			//getting classes
 			const result = await service.get(req.user?.user_id)
 			
@@ -27,25 +24,24 @@ module.exports = {
 		try{
 			
 			const code_class = parseInt(req.params.code_class) || undefined;
-			const author = service.singleAuthor(code_class, req.user);
 			
 			//authorizing..
-			author.teacher(async (data, err)=>{
+			await service.teacherAuthor(code_class, req, async (teacherData, err)=>{
 				
-				if(err){
-					try{
-						
-						await author.student();
-						
-					}catch(err){
-						return next(err)
-					}
+				try{
+				
+					if(err) await service.studentAuthor(code_class, req);
+					
+					//getting single class..
+					const resultClass = await service.getSingle(code_class);
+				
+					return res.json({ data: resultClass.rows[0]});
+					
+				}catch(err){
+					
+					next(err)
+					
 				}
-				
-				//getting single class..
-				const resultClass = await service.getSingle(code_class);
-			
-				return res.json({ data: resultClass.rows[0]});
 				
 			});
 			
@@ -62,10 +58,8 @@ module.exports = {
 			
 			const code_class = parseInt(req.params.code_class) || undefined;
 			
-			const author = service.singleAuthor(code_class, req.user);
-			
 			//authorizing..
-			await author.teacher();
+			await service.teacherAuthor(code_class, req);
 			
 			//deleting data..
 			const result = await service.deleteSingle(code_class)
@@ -87,9 +81,6 @@ module.exports = {
 		
 		try{
 			
-			//authorizing...
-			service.addClassAuthor(req);
-			
 			//adding class..
 			const result = await service.add(req);
 			
@@ -110,10 +101,9 @@ module.exports = {
 		try{
 			
 			const code_class = req.params.code_class || undefined;
-			const author = service.singleAuthor(code_class, req.user);
 			
 			//authorizing..
-			await author.teacher();
+			await service.teacherAuthor(code_class, req);
 			
 			//updating data...
 			const result = await service.editSingle(req, code_class);

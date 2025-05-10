@@ -26,146 +26,117 @@ module.exports = {
 			grant_type: 'authorization_code'
 		}
 		
-		try{
-			const result = await axios.post(
-				urlToken, 
-				qs.stringify(options), 
-				{
-					headers: {
-						'Content-Type': 'application/x-www-form-urlencoded',
-					}
+		const result = await axios.post(
+			urlToken, 
+			qs.stringify(options), 
+			{
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
 				}
-			)
-			return result
-		}catch(err){
-			
-			console.log('Failed to fetch google oauth token')
-			throw new Error(err)
-			
-		}
+			}
+		)
+		
+		return result
 		
 	},
 	
 	async sendEmailVerification({ user_id, email}){
 		
-		try{
-			
-			//create token
-			const stringData = JSON.stringify([ user_id, email ]);
-			let { encrypted: token, iv} = await cipher(stringData);
-			
-			//store token to verify email;
-			const updateSql = {
-				text: 'UPDATE users SET token = ARRAY[[$1, $2]] WHERE user_id = $3',
-				values: [token, iv, user_id]
-			}
-			await querySync(updateSql);
-			
-			token = encodeURIComponent(token);
-				
-			const link = `${config.client_url}/verify?t=${token}`;
-				
-			const message = {
-				from: `"${config.serviceName}" <${config.serviceEmail}>`,
-				to: email,
-				subject: 'Verification Email Messages',
-				text: 'text',
-				html: `
-				<h1>HALO</h1>
-				<a href=${link} >${link}</a>
-				`
-			}
-			
-			await emailService.sendEmail(message);
-			
-		}catch(err){
-			
-			throw err
+		//create token
+		const stringData = JSON.stringify([ user_id, email ]);
+		let { encrypted: token, iv} = await cipher(stringData);
+		
+		//store token to verify email;
+		const updateSql = {
+			text: 'UPDATE users SET token = ARRAY[[$1, $2]] WHERE user_id = $3',
+			values: [token, iv, user_id]
 		}
+		await querySync(updateSql);
+		
+		token = encodeURIComponent(token);
+			
+		const link = `${config.client_url}/verify?t=${token}`;
+			
+		const message = {
+			from: `"${config.serviceName}" <${config.serviceEmail}>`,
+			to: email,
+			subject: 'Verification Email Messages',
+			text: 'text',
+			html: `
+			<h1>HALO</h1>
+			<a href=${link} >${link}</a>
+			`
+		}
+		
+		await emailService.sendEmail(message);
+			
 	},
 	
 	async register(payload){
 		
 		const errorMessage = 'Registration failed';
 		
-		try{
+		//add user
+		const insertingResult = await userService.insertUser(payload, { return : true });
+		
+		const user = insertingResult.rows[0];
+		
+		if(!user) throw appError(errorMessage, 500); 
+		
+		//create token
+		const { user_id, email } = user;
+		
+		//start sending a email verification
+		await this.sendEmailVerification({ user_id, email })
 			
-			//add user
-			const insertingResult = await userService.insertUser(payload, { return : true });
-			
-			const user = insertingResult.rows[0];
-			
-			if(!user) throw appError(errorMessage, 500); 
-			
-			//create token
-			const { user_id, email } = user;
-			
-			//start sending a email verification
-			await this.sendEmailVerification({ user_id, email })
-			
-			
-		}catch(err){ 
-			
-			throw err
-			
-		}
 	},
 	
 	async forgotPassword(email){
 		
-		try{
-			const findingEmail = await userService.findUser({ email });
-			
-			if(!findingEmail.rowCount) throw appError('Email not found', 200);
-			
-			let {password, token: t, ...dataRemains } = findingEmail.rows[0];
-			
-			//create token
-			const stringData = JSON.stringify([ dataRemains.user_id, dataRemains.email ]);
-			let { encrypted: token, iv} = await cipher(stringData);
-			
-			//store token to verify email;
-			const updateSql = {
-				text: 'UPDATE users SET token = token || ARRAY[[$1, $2]] WHERE user_id = $3',
-				values: [token, iv, dataRemains.user_id]
-			}
-			await querySync(updateSql);
-			token = encodeURIComponent(token);
-			
-			const link = `${config.client_url}/reset-password?t=${token}`;
-			
-			const message = {
-				from: `"${config.serviceName}" <${config.serviceEmail}>`,
-				to: email,
-				subject: 'Reset Password',
-				text: 'text',
-				html: `
-				<a href=${link} >${link}</a>
-				`
-			}
-			
-			await emailService.sendEmail(message)
-			
-			return dataRemains;
-			
-		}catch(err){
-			throw err
+		const findingEmail = await userService.findUser({ email });
+		
+		if(!findingEmail.rowCount) throw appError('Email not found', 200);
+		
+		let {password, token: t, ...dataRemains } = findingEmail.rows[0];
+		
+		//create token
+		const stringData = JSON.stringify([ dataRemains.user_id, dataRemains.email ]);
+		let { encrypted: token, iv} = await cipher(stringData);
+		
+		//store token to verify email;
+		const updateSql = {
+			text: 'UPDATE users SET token = token || ARRAY[[$1, $2]] WHERE user_id = $3',
+			values: [token, iv, dataRemains.user_id]
 		}
+		await querySync(updateSql);
+		token = encodeURIComponent(token);
+		
+		const link = `${config.client_url}/reset-password?t=${token}`;
+		
+		const message = {
+			from: `"${config.serviceName}" <${config.serviceEmail}>`,
+			to: email,
+			subject: 'Reset Password',
+			text: 'text',
+			html: `
+			<a href=${link} >${link}</a>
+			`
+		}
+		
+		await emailService.sendEmail(message)
+		
+		return dataRemains;
 		
 	},
 	
 	async resetPassword(user_id, pwd){
 		
-		try{
-			const result = await userService.updateUser({user_id}, {password: pwd, token: null});
+		const result = await userService.updateUser({user_id}, {password: pwd, token: null});
 			
-			if(!result.rowCount) throw appError('Failed to reset password', 200);
-			
-			const { token, password, ...dataRemains} = result.rows[0]
-			return dataRemains;
-		}catch(err){
-			throw err
-		}
+		if(!result.rowCount) throw appError('Failed to reset password', 200);
+		
+		const { token, password, ...dataRemains} = result.rows[0]
+		return dataRemains;
 		
 	},
 	
@@ -202,64 +173,51 @@ module.exports = {
 	async getGooleUser({ id_token, access_token }){
 		
 		const urlUserInfo = `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`
-		try{
-			
-			const result = await axios.get(
-				urlUserInfo, 
-				{
-					headers: {
-						Authorization: `Bearer ${id_token}`
-					}
+		const result = await axios.get(
+			urlUserInfo, 
+			{
+				headers: {
+					Authorization: `Bearer ${id_token}`
 				}
-			)
-			return result
-			
-		}catch(err){
-			
-			console.log('Failed to get google user info')
-			throw err
-			
-		}
+			}
+		)
+		return result
 	},
 	
 	async googleOauth(code){
 		
-		try{
-			//use the code to get the id and access tokens
-			const { data: { id_token, access_token } } = await this.getGoogleOauthToken({ code })
+		//use the code to get the id and access tokens
+		const { data: { id_token, access_token } } = await this.getGoogleOauthToken({ code })
+		
+		//use the tokens to get the user info
+		const { data: { name, verified_email, email, picture } } = await this.getGooleUser({ id_token, access_token})
+		
+		if(!verified_email) return { error:1, message:"Email isn't verified", statusCode: 401}
+		
+		//update user if user alredy exists or create new user
+		
+		sqlResult = await userService.findUser({ email })
+		
+		if(sqlResult.rowCount){
 			
-			//use the tokens to get the user info
-			const { data: { name, verified_email, email, picture } } = await this.getGooleUser({ id_token, access_token})
+			const { user_id } = sqlResult.rows[0]
 			
-			if(!verified_email) return { error:1, message:"Email isn't verified", statusCode: 401}
+			return await this.signToken(user_id)
 			
-			//update user if user alredy exists or create new user
+		}else{
 			
-			sqlResult = await userService.findUser({ email })
-			
-			if(sqlResult.rowCount){
-				
-				const { user_id } = sqlResult.rows[0]
-				
-				return await this.signToken(user_id)
-				
-			}else{
-				
-				const sql_createId = {
-					text: "SELECT nextval('userid')"
-				}
-				sqlResult = await querySync(sql_createId)
-				
-				const user_id = parseInt(sqlResult.rows[0].nextval)
-				
-				const { access_token, refresh_token } = await this.signToken(user_id)
-				
-				await userService.insertUser({user_id, name,verified: true, email, provider: 'Google', photo: picture})
-				
-				return { access_token, refresh_token }
+			const sql_createId = {
+				text: "SELECT nextval('userid')"
 			}
-		}catch(err){
-			throw err 
+			sqlResult = await querySync(sql_createId)
+			
+			const user_id = parseInt(sqlResult.rows[0].nextval)
+			
+			const { access_token, refresh_token } = await this.signToken(user_id)
+			
+			await userService.insertUser({user_id, name,verified: true, email, provider: 'Google', photo: picture})
+			
+			return { access_token, refresh_token }
 		}
 	},
 	

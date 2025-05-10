@@ -1,52 +1,36 @@
 const { querySync } = require('../../services/query');
+const classService = require('../class/service');
+const service = require('./service')
+
 const { validationResult } = require('express-validator');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 
 module.exports = {
 	/*-----------------get-------------------------*/
-	async getClassDiscuss(req, res, next){
+	async get(req, res, next){
 		
 		try{
 			
 			const policy = policyFor(req.user);
-			//teacher sql
-			let teacherSql = {
-				text: 'SELECT teacher FROM classes WHERE code_class = $1',
-				values: [req.params.code_class]
-			}
-			//student sql
-			let studentSql = {
-				text: 'SELECT * FROM class_students WHERE class = $1 AND "user" = $2',
-				values: [req.params.code_class, req.user?.user_id]
-			}
+			const code_class = parseInt(req.params.code_class) || undefined;
 			
-			let teacherResult = await querySync(teacherSql);
-			let subjectClassDiscuss = subject('Class_discussion', {user_id: teacherResult.rows[0]?.teacher})
-			
-			//teacher authorization
-			if(!policy.can('read', subjectClassDiscuss)){
+			//teacher authorizing...
+			await classService.teacherAuthor(code_class, req,  async (teacherData, err)=>{
 				
-				let studentResult = await querySync(studentSql);
-				subjectClassDiscuss = subject('Class_discussion', {user_id: studentResult.rows[0]?.user})
-				
-				//student authorization
-				if(!policy.can('read', subjectClassDiscuss)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to get class disscussions"
-					})
+				try{
+					
+					//student authorizing..
+					if(err) await classService.studentAuthor(code_class, req);
+					
+					const result = await service.findByClass(code_class);
+					
+					res.json({data: result.rows})
+					
+				}catch(err){
+					next(err)
 				}
-			}
-			
-			query = {
-				text: 'SELECT class_discussions.*, classes.*, users.name , email, gender, photo  FROM class_discussions INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1 ORDER BY date',
-				values: [req.params.code_class]
-			}
-			
-			result = await querySync(query);
-			res.json({data: result.rows})
-			
+			})
 		}catch(err){
 			next(err);
 		}
@@ -92,35 +76,14 @@ module.exports = {
 	},*/
 	
 	/*-----------------add-------------------------*/
-	async addClassDiscuss(req, res, next){
+	async add(req, res, next){
 		
 		try{
-			let policy = policyFor(req.user);
-			if(!policy.can('create', 'Class_discussion')){
-				return res.json({
-					error: 1,
-					message: 'You have no access to add a discussion'
-				})
-			}
 			
-			const errInsert = validationResult(req);
-			let { date, text, code_class } = req.body;
-			
-			if(!errInsert.isEmpty()){
-				return res.json({
-					error: 1,
-					field: errInsert.mapped()
-				})
-			}
-			
-			const query = {
-				text: 'INSERT INTO class_discussions(date, text, class, "user") VALUES($1, $2, $3, $4) RETURNING *',
-				values: [date, text, code_class, req.user?.user_id]
-			}
-				const result = await querySync(query);
-				res.json({
-					data: result.rows
-				})
+			const result = await service.create(req);
+			res.json({
+				data: result.rows
+			})
 		}catch(err){
 			next(err)
 		}

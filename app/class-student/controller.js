@@ -19,7 +19,7 @@ module.exports = {
 			}
 			
 			query = {
-				text: 'SELECT cs.id_class_student, c.*, u.user_id uId, u.name uName, u.email uEmail, u.gender uGender, u.photo uPhoto, t.user_id tId, t.name tName, t.email tEmail, t.gender tGender, t.photo tPhoto FROM class_students cs INNER JOIN classes c ON class = code_class INNER JOIN users u ON cs.user = u.user_id INNER JOIN users t ON c.teacher = t.user_id WHERE "user" = $1',
+				text: 'SELECT cs.id_class_student, c.*, u.user_id uId, u.name uName, u.email uEmail, u.gender uGender, u.photo uPhoto, t.user_id tId, t.name tName, t.email tEmail, t.gender tGender, t.photo tPhoto FROM class_students cs INNER JOIN classes c ON class = code_class INNER JOIN users u ON cs.user_id = u.user_id INNER JOIN users t ON c.teacher = t.user_id WHERE cs.user_id = $1',
 				values: [req.user?.user_id]
 			}
 			
@@ -44,7 +44,7 @@ module.exports = {
 				values: [code_class]
 			}
 			let studentSql = {
-				text: 'SELECT * FROM class_students WHERE class = $1 AND "user" = $2',
+				text: 'SELECT * FROM class_students WHERE class = $1 AND user_id = $2',
 				values: [code_class, req.user?.user_id]
 			}
 			
@@ -65,7 +65,7 @@ module.exports = {
 				}
 				
 				let sqlResult = {
-					text: 'SELECT class_students.*, classes.*, users.name , email, gender, photo  FROM class_students INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1 AND "user" != $2',
+					text: 'SELECT cs.*, classes.*, users.name , email, gender, photo  FROM class_students cs INNER JOIN users ON user_id INNER JOIN classes ON class = code_class WHERE class = $1 AND cs.user_id != $2',
 					values: [code_class, req.user?.user_id]
 				}
 				
@@ -74,7 +74,7 @@ module.exports = {
 			}
 			
 			let sqlResult2 = {
-				text: 'SELECT class_students.*, classes.*, users.name , email, gender, photo  FROM class_students INNER JOIN users ON "user" = user_id INNER JOIN classes ON class = code_class WHERE class = $1',
+				text: 'SELECT class_students.*, classes.*, users.name , email, gender, photo  FROM class_students INNER JOIN users ON user_id INNER JOIN classes ON class = code_class WHERE class = $1',
 				values: [code_class]
 			}
 			
@@ -149,7 +149,7 @@ module.exports = {
 			}
 			
 			sql = {
-				text: 'INSERT INTO class_students(class, "user") VALUES($1, $2) RETURNING *',
+				text: 'INSERT INTO class_students(class, user_id) VALUES($1, $2) RETURNING *',
 				values: [classes, user]
 			}
 			result = await querySync(sql);
@@ -187,7 +187,7 @@ module.exports = {
 			}
 			
 			sql = {
-				text: 'INSERT INTO class_students(class, "user") VALUES($1, $2) RETURNING *',
+				text: 'INSERT INTO class_students(class, user_id) VALUES($1, $2) RETURNING *',
 				values: [classes, req.user?.user_id]
 			}
 			result = await querySync(sql);
@@ -223,7 +223,7 @@ module.exports = {
 				//student authorization
 				const studentSql = {
 				text: `SELECT u.user_id FROM class_students cs
-					   INNER JOIN users u ON cs.user = u.user_id WHERE id_class_student = $1`,
+					   INNER JOIN users u ON cs.user_id = u.user_id WHERE id_class_student = $1`,
 				values: [id_class_student]
 				}
 				

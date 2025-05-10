@@ -4,6 +4,7 @@ const { body } = require('express-validator');
 const { querySync } = require('../../services/query');
 const matters = require('../../services/table')('matters');
 const isDate2 = require('../utils/isDate2');
+const classService = require('../class/service');
 
 const isIntMessage = "Input must be a integer";
 const isArrayMessage = "Input must be a array";
@@ -82,13 +83,16 @@ function isNull(val){
 
 async function isMine(codeClass, { req }){
 	
-	const sql={
-		text: "SELECT * FROM classes WHERE code_class=$1 AND teacher=$2",
-		values: [codeClass, req.user?.user_id]
+	try{
+		
+		await classService.teacherAuthor(codeClass, req)
+		
+		return true;
+		
+	}catch(err){
+		return Promise.reject("Code class isn't found");
 	}
 	
-	const classData = await querySync(sql);
-	if(!classData.rowCount) return Promise.reject("Code class isn't found");
 }
 
 //custoom sanitizer
