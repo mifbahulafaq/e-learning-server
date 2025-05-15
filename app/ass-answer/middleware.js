@@ -2,6 +2,9 @@ const policyFor = require('../policy');
 const { querySync } = require('../../services/query');
 const { subject } = require('@casl/ability');
 const { body } = require('express-validator');
+const matt_ass = require('../../services/table')('matt_ass');
+
+const mattAssService = require('../matt-ass/service');
 
 async function singleAssAnswerAuthor(req, res, next){
 	
@@ -69,47 +72,13 @@ module.exports = {
 
 async function isMine(id_matt_ass, { req }){
 	
-	let sql ={
-		text: "SELECT m.class, ma.date, ma.duration FROM matt_ass ma INNER JOIN matters m ON ma.id_matt=m.id_matter WHERE ma.id_matt_ass=$1",
-		values: [id_matt_ass]
-	}
-	let getClass = await querySync(sql);
+	return await mattAssService.studentAuthor(id_matt_ass, req, (studentData, err)=>{
+		
+		if(err) return Promise.reject("Id assignment isn't found");
+		
+		req.studentData = studentData;
+		return true
+			
+	});
 	
-	if(getClass.rowCount){
-		
-		let { class: codeCLass, date, duration } = getClass.rows[0]
-		duration = parseInt(duration);
-		
-		sql = {
-			text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
-			values: [ codeCLass, req.user?.user_id]
-		}
-		
-		getStudent = await querySync(sql);
-		
-		if(getStudent.rowCount){
-			
-			if(duration){
-				
-				//convert the raw duration value to current time
-				const deadline = (new Date(date)).getTime() + duration;
-				
-				if(Date.now() > deadline){
-					//this code is to send a error to the ctrler and thrown there. if thrown here, will be error field, i won't wan that way to happen
-						req.errorFromField = {
-							message: 'You add an answer the exam since the time enters the deadline',
-							status: 200
-						}
-				}
-				
-			}
-			
-			
-			
-			return true
-		
-		}
-	}
-	
-	return Promise.reject("Id assignment isn't found");
 }

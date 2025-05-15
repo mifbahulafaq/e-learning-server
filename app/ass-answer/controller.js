@@ -9,7 +9,10 @@ const config = require('../../config');
 const fs = require('fs');
 
 const { querySync } = require('../../services/query');
-const ass_answers = require('../../services/table')('ass_answers');
+const matt_ass = require('../../services/table')('matt_ass');
+
+const assService = require('../matt-ass/service');
+const assAnsService = require('./service');
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -17,72 +20,25 @@ module.exports = {
 		
 		try{
 			
-			const id_matt_ass = parseInt(req.params.id_matt_ass)
-			const policy = policyFor(req.user);
+			const id_matt_ass = parseInt(req.params.id_matt_ass) || undefined;
+			let teacher = true;
 			
-			let sql = {
-				text: 'SELECT c.teacher FROM matt_ass ma INNER JOIN matters m ON ma.id_matt = m.id_matter INNER JOIN classes c ON m.class = c.code_class WHERE ma.id_matt_ass=$1',
-				values: [id_matt_ass || undefined]
-			}
-			const { rows: teacherAss } = await querySync(sql);
-			
-			let subjectAssAns = subject('Assignment_answer',{user_id: teacherAss[0]?.teacher})
-			
-			if(!policy.can('read', subjectAssAns)){//teacher auth
-			
-				sql = {
-					text: `SELECT ma.*, m.schedule matter_schedule
-						FROM matt_ass ma
-						INNER JOIN matters m ON ma.id_matt=m.id_matter
-						WHERE ma.id_matt_ass = $1 AND m.class IN (SELECT class FROM class_students WHERE "user" = $2)`,
-					values: [id_matt_ass || undefined, req.user.user_id]
-				}
-				const { rows: userAss } = await querySync(sql);
+			await assService.teacherAuthor(id_matt_ass, req, async (teacherData, err)=>{
 				
-				subjectAssAns = subject('Assignment_answer',{user_id: userAss.length? req.user.user_id: undefined})
-				
-				if(!policy.can('read', subjectAssAns)){//student auth
-					return res.json({
-						error: 1,
-						message: "You're not allowed to perform this assignment answer"
-					})
-				}
-
-				const scheduleOfMatter = userAss[0]?.matter_schedule? new Date(userAss[0]?.matter_schedule): undefined;
-				
-				if(new Date() < scheduleOfMatter){
-					return res.json({
-						error: 1,
-						message: "You can only get the data when the time enters the schedule of the matter " + scheduleOfMatter.toLocaleString("en-US")
-					})
+				try{
+					
+					if(err) await assService.studentAuthor(id_matt_ass, req);
+					
+					teacher = false;
+					
+				}catch(err){
+					next(err)
 				}
 				
-				sql = {
-					text: `SELECT 
-						aa.*, jsonb_build_object('name',u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user", jsonb_build_object('id_matt_ass',ma.id_matt_ass, 'duration', ma.duration, 'text', ma.text, 'date', ma.date, 'attachment', ma.attachment, 'matter', m.*, 'title', ma.title) assignmentmatter FROM ass_answers aa 
-						INNER JOIN "users" u ON aa.user_id=u.user_id
-						INNER JOIN matt_ass ma ON aa.id_matt_ass=ma.id_matt_ass
-						INNER JOIN matters m ON ma.id_matt=m.id_matter
-						WHERE aa.id_matt_ass = $1 AND aa.user_id = $2`,
-					values: [id_matt_ass || undefined, req.user.user_id]
-				}
-				const { rows: userData} = await querySync(sql);
-				
-				return res.json({data: userData})
-			}
-			
-			sql = {
-				text: `SELECT 
-						aa.*, jsonb_build_object('name',u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user", jsonb_build_object('id_matt_ass',ma.id_matt_ass, 'duration', ma.duration, 'text', ma.text, 'date', ma.date, 'attachment', ma.attachment, 'matter', m.*, 'title', ma.title) assignmentmatter FROM ass_answers aa 
-						INNER JOIN "users" u ON aa.user_id=u.user_id
-						INNER JOIN matt_ass ma ON aa.id_matt_ass=ma.id_matt_ass
-						INNER JOIN matters m ON ma.id_matt=m.id_matter
-						WHERE aa.id_matt_ass = $1`,
-				values: [id_matt_ass || undefined]
-			}
-			
-			const { rows: teacherData } = await querySync(sql);
-			res.json({data: teacherData})
+			})
+		
+			const { rows } = await assAnsService.getByAss(req, teacher)
+			res.json({data: rows})
 			
 		}catch(err){
 			next(err);
@@ -101,58 +57,13 @@ module.exports = {
 		
 		try{
 			
-			const { user, errorFromField, file, body} = req;
-			
-			let policy = policyFor(user);
-			
-			if(!policy.can('create', 'Assignment_answer')) throw appError('You have no access to add a assignment answer', 200);
-			
-			const errInsert = validationResult(req);
-			
-			if(!errInsert.isEmpty()){
-				
-				const err = appError('Insert', 200);
-				err.field = errInsert.mapped();
-
-				throw err;
-			}
-			//get error from field
-			if(errorFromField) throw appError(errorFromField.message, errorFromField.status);
-			
-			let { id_matt_ass } = body;
-			let content = [
-				file.filename,
-				file.originalname
-			]
-			
-			content = toSqlArray([content])
-			
-			//checking the user's answers
-			const where = {user_id:  user?.user_id, id_matt_ass}
-			const getUser = await ass_answers.find(where).execute();
-			
-			if(getUser.rowCount){//update
-				
-				let sql = {
-					text: 'UPDATE ass_answers SET content = content || $1 WHERE id_ass_answer = $2 RETURNING *',
-					values: [ content, getUser.rows[0].id_ass_answer ]
-				}
-				const updateData = await querySync(sql);
-				return res.json({
-					data: updateData.rows
-				})
-			}
-			
-			//inserting..
-			const data = {content, id_matt_ass, user_id: user?.user_id}
-			const insertData = await ass_answers.insert(data);
+			const insertData = await assAnsService.add(req);
 			
 			res.json({
 				data: insertData.rows
 			})
 			
 		}catch(err){
-			
 			next(err)
 		}
 	},

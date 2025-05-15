@@ -7,32 +7,22 @@ const appError = require('../utils/appError')
 
 module.exports = {
 	
-	async insertUser(data, obj = { } ){
-		 try{
-			
-			 return await users.insert(data)
-
-		 }catch(err){
-			 throw err
-		 }
+	insertUser(data, obj = { } ){
+		
+		return users.insert(data)
+		
 	},
 	
 	async findUser(where){
-		try{
-			
-			return await users.find(where).execute()
-			
-		}catch(err){
-			throw err
-		}
+		
+		return users.find(where).execute()
+		
 	},
 	
 	async updatePass(new_password, user_id){
-		try{
-			return await users.update({ password: new_password}, {user_id}).execute()
-		}catch(err){
-			throw err
-		}
+		
+		return users.update({ password: new_password}, {user_id}).execute()
+			
 	},
 	
 	async updateUser(where, data){
