@@ -14,9 +14,7 @@ module.exports = {
 	},
 	
 	async findUser(where){
-		
 		return users.find(where).execute()
-		
 	},
 	
 	async updatePass(new_password, user_id){

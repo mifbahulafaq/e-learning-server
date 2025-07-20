@@ -12,6 +12,7 @@ const emailService = require('../../services/email');
 const appError = require('../utils/appError');
 const cipher = require('../utils/cipher');
 const decipher = require('../utils/decipher');
+const validateBody = require('../utils/validateBody')
 
 module.exports = {
 	
@@ -129,9 +130,12 @@ module.exports = {
 		
 	},
 	
-	async resetPassword(user_id, pwd){
+	async resetPassword(req, user_id, pwd){
 		
-		const result = await userService.updateUser({user_id}, {password: pwd, token: null});
+		
+		validateBody(req, 'Reset');
+		
+		const result = await userService.updateUser({user_id: req.user_id}, {password: pwd, token: null});
 			
 		if(!result.rowCount) throw appError('Failed to reset password', 200);
 		
@@ -145,29 +149,19 @@ module.exports = {
 		const errorMessage = "Couldn't verify your email";
 		const errorStatus = 200;
 		
-		try{
-			
-			const verifiedEmail = await userService.findUser({ verified: true, user_id: user?.user_id});
-			
-			if(verifiedEmail.rowCount) throw appError('Email has been verified', errorStatus);
-			
-			const updateData = { verified: 't', token: null};
-			
-			const userData = await userService.updateUser({user_id: user?.user_id, verified: false}, updateData)
-			
-			if(!userData.rowCount) throw appError(errorMessage, errorStatus);
-			
-			const { password, token: t, ...remains } = userData.rows[0];
-			
-			return remains;
-			
-			
-		}catch(err){
-			
-			if(err.status === 200) throw err;
-			
-			throw appError(errorMessage, errorStatus);
-		}
+		const verifiedEmail = await userService.findUser({ verified: true, user_id: user?.user_id});
+		
+		if(verifiedEmail.rowCount) throw appError('Email has been verified', errorStatus);
+		
+		const updateData = { verified: 't', token: null};
+		
+		const userData = await userService.updateUser({user_id: user?.user_id, verified: false}, updateData)
+		
+		if(!userData.rowCount) throw appError(errorMessage, errorStatus);
+		
+		const { password, token: t, ...remains } = userData.rows[0];
+		
+		return remains;
 		
 	},
 	async getGooleUser({ id_token, access_token }){

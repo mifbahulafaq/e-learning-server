@@ -27,6 +27,7 @@ module.exports = {
 	async local(body_email, body_pass, done){
 		
 		try{
+			
 			let result = await userService.findUser({ email: body_email })
 			
 			if(result.rowCount){
@@ -106,19 +107,10 @@ module.exports = {
 	async resetPassword(req, res, next){
 		
 		try{
-			const errInsert = validationResult(req);
-		
-			if(!errInsert.isEmpty()){
-				
-				return res.json({
-					error: 1,
-					field: errInsert.mapped()
-				})
-			}
 			
 			const { new_password } = req.body;
 			
-			const userData = await authService.resetPassword(req.user.user_id, new_password)
+			const userData = await authService.resetPassword(req, new_password)
 			
 			res.json({
 				data: userData,

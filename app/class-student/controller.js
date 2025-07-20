@@ -1,7 +1,7 @@
 const { querySync } = require('../../services/query');
-const { validationResult } = require('express-validator');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
+
+const service = require('./service');
+const classService = require('../class/service');
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -9,25 +9,12 @@ module.exports = {
 		
 		try{
 			
-			const policy = policyFor(req.user);
+			const result = await service.get(req.user?.user_id);
 			
-			if(!policy.can('readAll', 'Class_student')){
-				return res.json({
-					error: 1,
-					message: "You're not allowed to get class students"
-				})
-			}
-			
-			query = {
-				text: 'SELECT cs.id_class_student, c.*, u.user_id uId, u.name uName, u.email uEmail, u.gender uGender, u.photo uPhoto, t.user_id tId, t.name tName, t.email tEmail, t.gender tGender, t.photo tPhoto FROM class_students cs INNER JOIN classes c ON class = code_class INNER JOIN users u ON cs.user_id = u.user_id INNER JOIN users t ON c.teacher = t.user_id WHERE cs.user_id = $1',
-				values: [req.user?.user_id]
-			}
-			
-			result = await querySync(query);
 			res.json({data: result.rows})
 			
 		}catch(err){
-			console.log(err)
+			
 			next(err);
 		}
 	},
@@ -36,50 +23,23 @@ module.exports = {
 		
 		try{
 			
-			const policy = policyFor(req.user);
-			const code_class = parseInt(req.params.code_class) || undefined
+			const code_class = parseInt(req.params.code_class) || undefined;
+			let isTeacher = true;
 			
-			let teacherSql = {
-				text: 'SELECT teacher FROM classes WHERE code_class = $1',
-				values: [code_class]
-			}
-			let studentSql = {
-				text: 'SELECT * FROM class_students WHERE class = $1 AND user_id = $2',
-				values: [code_class, req.user?.user_id]
-			}
+			//checking teacher authorization..
+			const teacherData = await classService.teacherAuthor(code_class, req);
 			
-			let teacherResult = await querySync(teacherSql);
-			let subjectStudent = subject('Class_student', {user_id: teacherResult.rows[0]?.teacher})
-			
-			//teacher authorization
-			if(!policy.can('read', subjectStudent)){
+			if(!teacherData.teacher){
 				
-				let studentResult = await querySync(studentSql);
-				subjectStudent = subject('Class_student', {user_id: studentResult.rows[0]?.user})
+				//checking student authorization..
+				await classService.studentAuthor(code_class, req)
+				isTeacher = false;
 				
-				if(!policy.can('read', subjectStudent)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to get class students"
-					})
-				}
-				
-				let sqlResult = {
-					text: 'SELECT cs.*, classes.*, users.name , email, gender, photo  FROM class_students cs INNER JOIN users ON user_id INNER JOIN classes ON class = code_class WHERE class = $1 AND cs.user_id != $2',
-					values: [code_class, req.user?.user_id]
-				}
-				
-				let result = await querySync(sqlResult);
-				return res.json({data: result.rows})
 			}
 			
-			let sqlResult2 = {
-				text: 'SELECT class_students.*, classes.*, users.name , email, gender, photo  FROM class_students INNER JOIN users ON user_id INNER JOIN classes ON class = code_class WHERE class = $1',
-				values: [code_class]
-			}
+			let result = await service.getByClass(req, isTeacher);
 			
-			let result2 = await querySync(sqlResult2);
-			res.json({data: result2.rows})
+			res.json({data: result.rows})
 			
 		}catch(err){
 			next(err);
@@ -126,33 +86,13 @@ module.exports = {
 	},*/
 	
 	/*-----------------add-------------------------*/
-	async addStudent(req, res, next){
-		
-		let policy = policyFor(req.user);
-		let { class : classes, user } = req.body;
+	async add(req, res, next){
 		
 		try{
 			
-			if(!policy.can('create', 'Class_student')){
-				return res.json({
-					error: 1,
-					message: "You aren't allowed to add a class student"
-				})
-			}
+			// return res.send('joining test')
 			
-			const errInsert = validationResult(req);
-			if(!errInsert.isEmpty()){
-				return res.json({
-					error: 1,
-					field: errInsert.mapped()
-				})
-			}
-			
-			sql = {
-				text: 'INSERT INTO class_students(class, user_id) VALUES($1, $2) RETURNING *',
-				values: [classes, user]
-			}
-			result = await querySync(sql);
+			const result = await service.add(req)
 			
 			res.json({
 				data: result.rows
@@ -162,97 +102,31 @@ module.exports = {
 		}
 	},
 	
-	
 	/*-----------------join class-------------------------*/
-	async joinClass(req, res, next){
-		
-		let policy = policyFor(req.user);
-		let { class : classes } = req.body;
-		
+	async unenroll(req, res, next){
+			
 		try{
 			
-			if(!policy.can('create', 'Class_student')){
-				return res.json({
-					error: 1,
-					message: "You aren't allowed to join a class"
-				})
-			}
+			const id_class_student = parseInt(req.params.id_class_student) || undefined
 			
-			const errInsert = validationResult(req);
-			if(!errInsert.isEmpty()){
-				return res.json({
-					error: 1,
-					field: errInsert.mapped()
-				})
-			}
+			//checking teacher authorization..
+			const teacherData = await service.teacherAuthor(id_class_student, req);
 			
-			sql = {
-				text: 'INSERT INTO class_students(class, user_id) VALUES($1, $2) RETURNING *',
-				values: [classes, req.user?.user_id]
-			}
-			result = await querySync(sql);
-			
-			res.json({
-				data: result.rows
-			})
-		}catch(err){
-			next(err)
-		}
-	},
-	
-	
-	/*-----------------join class-------------------------*/
-	async unenrol(req, res, next){
-		
-		const id_class_student = parseInt(req.params.id_class_student) || undefined
-		let policy = policyFor(req.user);
-		
-		try{
-			
-			const teacherSql = {
-				text: `SELECT c.teacher FROM class_students cs
-					   INNER JOIN classes c ON cs.class = c.code_class WHERE id_class_student = $1`,
-				values: [id_class_student]
-			}
-			const { rows: teacherData} = await querySync(teacherSql)
-			let subjectStudent = subject('Class_student', { user_id: teacherData[0]?.teacher})
-			
-			//teacher authorization
-			if(!policy.can('delete', subjectStudent)){
+			if(!teacherData.teacher){
 				
-				//student authorization
-				const studentSql = {
-				text: `SELECT u.user_id FROM class_students cs
-					   INNER JOIN users u ON cs.user_id = u.user_id WHERE id_class_student = $1`,
-				values: [id_class_student]
-				}
-				
-				const { rows: studentData} = await querySync(studentSql)
-				subjectStudent = subject('Class_student', { user_id: studentData[0]?.user_id})
-				
-				if(!policy.can('delete', subjectStudent)){
-					
-					return res.json({
-						error: 1,
-						message: "You aren't allowed to unenrol"
-					})
-				}
+				//checking student authorization..
+				await service.studentAuthor(id_class_student, req)
 				
 			}
 			
-			const unenrolSql = {
-				text: 'DELETE FROM class_students WHERE id_class_student = $1',
-				values: [id_class_student]
-			}
-			
-			const unenrolResult = await querySync(unenrolSql);
+			await service.unenroll(id_class_student);
 			
 			res.json({
 				message: "Unenrolling successfully"
 			})
 			
 		}catch(err){
-			next(err)
+			next(err);
 		}
 	},
 	

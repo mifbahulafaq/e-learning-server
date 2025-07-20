@@ -3,7 +3,8 @@ const { querySync } = require('../../services/query');
 const class_discussions = require('../../services/table')('class_discussions');
 //utils
 const filterData = require('../utils/filterData');
-const appError = require('../utils/appError')
+const appError = require('../utils/appError');
+const validateBody = require('../utils/validateBody');
 
 const discussionColNames = ['text', 'class', 'user_id'];
 
@@ -19,15 +20,8 @@ function findByClass(code_class){
 
 async function create(req){
 	
-	const errInsert = validationResult(req);
-	
-	if(!errInsert.isEmpty()){
-		
-		const err = appError('insert', 200);
-		err.field = errInsert.mapped()
-		
-		throw err;
-	}
+	//validatin..
+	validateBody(req, 'Insert');
 	
 	req.body.user_id = req.user.user_id;
 	

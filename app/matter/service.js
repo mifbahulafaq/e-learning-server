@@ -8,8 +8,10 @@ const fileService = require('../../services/file');
 //utils
 const toSqlArray = require('../utils/toSqlArray');
 const filterData = require('../utils/filterData');
+const isDate = require('../utils/isDate');
 const searchFileOfArrays = require('../utils/searchFileOfArrays');
 const appError = require('../utils/appError')
+const validateBody = require('../utils/validateBody')
 
 const matterColNames = ['schedule', 'name', 'description', 'attachment', 'class', 'status'];
 
@@ -37,6 +39,15 @@ async function studentAuthor(id_matt, req, cb){
 	const { rows: studentData} = await querySync(sqlGetStudent);
 	
 	return singleAuthorization('Matter', req.user, studentData[0] || {}, cb);
+}
+
+function scheduleMatter(isTeacher, schedule){
+	
+	schedule = new Date(schedule);
+	
+	const errMSG = "You can only get the data when the time enters the schedule of the material " + schedule.toLocaleString("en-US")
+	
+	if(!isTeacher && new Date() < schedule) throw appError(errMSG, 200);
 }
 
 async function findByClass(qs, code_class){
@@ -87,29 +98,28 @@ async function findByClass(qs, code_class){
 	return await querySync(sql);
 }
 
-async function getSingle(id_matt){
+async function getSingle(isTeacher, id_matt){
 	
 	const query = {
 		text: 'SELECT m.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo FROM matters m INNER JOIN classes c ON m.class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE id_matter = $1',
 		values: [id_matt]
 	}
+	
+	const result = await querySync(query);
+	const { rows } = result;
+	
+	if(isDate(rows[0].schedule)) this.scheduleMatter(isTeacher, rows[0].schedule);
 		
-	return await querySync(query);
+	return result;
 	
 }
 
 async function create(req){
 	
 	let { body, files } = req;
-	const errInsert = validationResult(req);
-			
-	if(!errInsert.isEmpty()){
-		
-		const err = appError('insert', 200);
-		err.field = errInsert.mapped()
-		
-		throw err;
-	}
+	
+	//validating
+	validateBody(req, 'Insert');
 
 	if(files){
 		body.attachment = toSqlArray(files.map(e=>[e.filename, e.originalname]))
@@ -126,16 +136,7 @@ async function update(req, id_matter, alldatas){
 	let { body, files } = alldatas;
 	
 	//validating...
-	const errUpdate = validationResult(req);
-	
-	if(!errUpdate.isEmpty()){
-		
-		const err = appError('update', 200);
-		err.field = errUpdate.mapped()
-		
-		throw err;
-		
-	}
+	validateBody(req, 'update');
 	
 	if(body.attachment !== undefined){
 		
@@ -177,9 +178,13 @@ async function update(req, id_matter, alldatas){
 	return resultUpdate;
 }
 
-async function getSingleAttachment(user_id, id_matt, filename){
+async function getSingleAttachment(isTeacher, req){
 	
-	const { rows: singleMatter } = await this.getSingleMatter(id_matt);
+	const id_matt = parseInt(req.params.id_matt) || undefined;
+	const user_id = req.user.user_id;
+	const filename = req.params.filename;
+	
+	const { rows: singleMatter } = await this.getSingle(isTeacher, id_matt);
 	
 	await searchFileOfArrays(singleMatter?.[0]?.attachment, filename);
 	
@@ -209,5 +214,6 @@ module.exports = {
 	getSingle,
 	create,
 	update,
-	getSingleAttachment
+	getSingleAttachment,
+	scheduleMatter
 }

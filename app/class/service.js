@@ -1,13 +1,18 @@
 const { querySync } = require('../../services/query');
 const { validationResult } = require('express-validator');
+
 const classes = require('../../services/table')('classes');
 const class_students = require('../../services/table')('class_students');
-const appError = require('../utils/appError');
+
 const path = require('path');
 const config = require('../../config');
 const { removeFiles } = require('../../services/file');
 const singleAuthorization = require('../../services/singleAuthorization');
+
 const filterData = require('../utils/filterData');
+const appError = require('../utils/appError');
+const validateBody = require('../utils/validateBody');
+
 const classColumns = ['class_name', 'description', 'color', 'teacher'];
 
 async function teacherAuthor(code_class, req, cb){
@@ -20,7 +25,7 @@ async function teacherAuthor(code_class, req, cb){
 
 async function studentAuthor(code_class, req, cb){
 	
-	const user_id = req.user?.user_id
+	const user_id = req.user?.user_id;
 	
 	const { rows: studentData } = await class_students.find({ class: code_class, user_id }).execute();
 	
@@ -80,17 +85,8 @@ async function deleteSingle(code_class){
 }
 async function add(req){
 	
-	const errInsert = validationResult(req);
-	let { class_name, description, color } = req.body;
-	
 	//validating..
-	if(!errInsert.isEmpty()){
-		
-		const err = appError('insert', 200);
-		err.field = errInsert.mapped()
-		
-		throw err;
-	}
+	validateBody(req, 'Insert');
 	
 	//inserting new data..
 	const payload = filterData(classColumns, {...req.body, teacher: req.user.user_id});
@@ -100,16 +96,8 @@ async function add(req){
 
 async function editSingle(req, code_class){
 	
-	const errUpdate = validationResult(req);
-			
 	//validating..
-	if(!errUpdate.isEmpty()){
-		
-		const err = appError('update', 200);
-		err.field = errUpdate.mapped()
-		
-		throw err;
-	}
+	validateBody(req, 'Update');
 	
 	if(!Object.keys(filterData(['description', 'class_name'], req.body)).length){
 		throw appError('No data to be upadted', 200)

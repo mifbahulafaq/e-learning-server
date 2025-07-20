@@ -1,10 +1,5 @@
-const { querySync } = require('../../services/query');
 const classService = require('../class/service');
-const service = require('./service')
-
-const { validationResult } = require('express-validator');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
+const service = require('./service');
 
 module.exports = {
 	/*-----------------get-------------------------*/

@@ -2,7 +2,7 @@ const { body } = require('express-validator');
 const moment = require('moment');
 const noEdgeWhitespace = require('../utils/noEdgeWhitespace');
 
-const classService = require('../class/service')
+const classService = require('../class/service');
 
 const noEmptyMsg = 'This field must be filled';
 const lengthMsg = 'Must be less than 255 characters long';
@@ -38,8 +38,7 @@ async function isMine(code_class, {req}){
 		try{
 			
 			if(err) await classService.studentAuthor(code_class, req);
-			
-			return true
+			// return true
 			
 		}catch(err){
 			

@@ -10,6 +10,7 @@ module.exports = function(arrFiles, fileName){
 		[
 			[decodedName.docx,"originalname.docx"]
 		]
+		if not error will be thrown
 	*/
 	
 	return new Promise((resolve, reject)=>{

@@ -83,16 +83,12 @@ function isNull(val){
 
 async function isMine(codeClass, { req }){
 	
-	try{
+	return await classService.teacherAuthor(codeClass, req, (teacherData, err)=>{
 		
-		await classService.teacherAuthor(codeClass, req)
+		if(err) return Promise.reject("Code class isn't found");
 		
 		return true;
-		
-	}catch(err){
-		return Promise.reject("Code class isn't found");
-	}
-	
+	})
 }
 
 //custoom sanitizer

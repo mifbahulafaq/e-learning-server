@@ -1,51 +1,13 @@
-const { querySync } = require('../../services/query');
-const { validationResult } = require('express-validator');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
-const isDate = require('../utils/isDate');
+const classService = require('../class/service');
+const service = require('./service');
 
 module.exports = {
 	
 	async createSchedule(req, res, next){
 		
-		const { schedules, code_class} = req.body;
-		
 		try{
 			
-			const errCreate = validationResult(req);
-			if(!errCreate.isEmpty()){
-				return res.json({
-					error: 1,
-					field: errCreate.mapped()
-				})
-			}
-			
-			const policy = policyFor(req.user);
-			
-			if(!policy.can('create', 'Schedule')){
-				return res.json({
-					error: 1,
-					message: "You're not allowed to create a schedule"
-				})
-			}
-			
-			//set multiple insert
-			let length = 3;
-			let strVal = '($1, $2, $3)';
-			schedules.forEach((e,iP)=>{
-				if(iP>0){
-					strVal += `, ($${length+1}, $${length+2}, $${length+3})`;
-					length += 3;
-				}
-			})
-			
-			let sql = {
-				text : `INSERT INTO schedules(day, time, code_class) VALUES${strVal} ON CONFLICT ON CONSTRAINT unique_schedules DO NOTHING RETURNING *`,
-				values : []
-			}
-			schedules.forEach(e=>sql.values = [...sql.values, e.day, e.time, code_class]);
-			
-			const result = await querySync(sql);
+			const result = await service.add();
 			
 			res.json({
 				data: result.rows

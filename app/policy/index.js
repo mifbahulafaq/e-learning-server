@@ -6,47 +6,33 @@ module.exports = function(user){
 		builder.can('readsingle','User', {user_id: user.user_id})
 		builder.can('update','User', {user_id: user.user_id})
 		
-		builder.can('create','Class')
-		builder.can('read','Class')
 		builder.can('readsingle','Class',{user_id: user.user_id})
 		
-		builder.can('create','Schedule')
 		builder.can('read','Schedule',{user_id: user.user_id})
 		
-		builder.can('create','Class_student')
 		builder.can('read','Class_student', {user_id: user.user_id}) //by code_class
-		builder.can('readAll','Class_student')
 		builder.can('readsingle','Class_student', {user_id: user.user_id})
 		
 		builder.can('read','Class_discussion',{user_id: user.user_id})
-		builder.can('create','Class_discussion')
 		
-		builder.can('create','Matter')
 		builder.can('readsingle','Matter',{user_id: user.user_id})
 		builder.can('read','Matter',{user_id: user.user_id})
 		
 		builder.can('read','Matter_discussion',{user_id: user.user_id})
-		builder.can('create','Matter_discussion')
 		
-		builder.can('create','Exam')
 		builder.can('read','Exam',{user_id: user.user_id})
 		builder.can('readsingle','Exam',{user_id: user.user_id})
 		
-		builder.can('create','Exam_answer')
 		builder.can('read','Exam_answer',{user_id: user.user_id})
 		builder.can('readsingle','Exam_answer',{user_id: user.user_id})
 		
 		builder.can('read','Exam_answer_comment',{user_id: user.user_id})
-		builder.can('create','Exam_answer_comment')
 		
-		builder.can('create','Matt_ass')
 		builder.can('read','Matt_ass',{user_id: user.user_id})
-		builder.can('readall','Matt_ass')
 		builder.can('readsingle','Matt_ass',{user_id: user.user_id})
 		
 		builder.can('read','Assignment_answer',{user_id: user.user_id})
 		builder.can('readsingle','Assignment_answer',{user_id: user.user_id})
-		builder.can('create','Assignment_answer')
 		
 		builder.can('read', 'File', {user_id: user.user_id})
 	}

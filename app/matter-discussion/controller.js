@@ -3,59 +3,42 @@ const { validationResult } = require('express-validator');
 const policyFor = require('../policy');
 const { subject } = require('@casl/ability');
 
+const discussService = require('./service');
+const mattService = require('../matter/service');
+
+
 module.exports = {
 	/*-----------------get-------------------------*/
 	async getMattDiscuss(req, res, next){
 		
 		try{
 			
-			//authorization
-			const policy = policyFor(req.user);
-			let sql_get_matter = {
-				text: 'SELECT teacher, class, m.schedule FROM matters m INNER JOIN classes ON class = code_class WHERE id_matter = $1',
-				values: [req.params.id_matt]
-			}
-			let matterData = await querySync(sql_get_matter);
+			const id_matt = req.params.id_matt || undefined;
+			let isTeacher = true;
 			
-			let subjectMatterDiscuss = subject('Matter_discussion', {user_id: matterData.rows[0]?.teacher})
-			
-			if(!policy.can('read', subjectMatterDiscuss)){
+			//teacher authorizing...
+			await mattService.teacherAuthor(id_matt, req, async (teacherData, err)=>{
 				
-				let sql_get_student = {
-					text: 'SELECT "user" FROM class_students WHERE class = $1 AND "user" = $2' ,
-					values: [matterData.rows[0]?.class, req.user?.user_id]
+				try{
+					
+					if(err){
+						
+						isTeacher = false;
+						await mattService.studentAuthor(id_matt, req);
+						
+					}
+					
+					const result = await discussService.get(id_matt, isTeacher);
+					//the result of it is [] of data
+					res.json({data: result })
+					
+				}catch(err){
+					next(err)
 				}
-				studentData = await querySync(sql_get_student);
-				
-				subjectMatterDiscuss = subject('Matter_discussion', {user_id: studentData.rows[0]?.user})
-				
-				if(!policy.can('read', subjectMatterDiscuss)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to perform this action"
-					})
-				}
-				
-				const scheduleOfMatter = matterData.rows[0]?.schedule? new Date(matterData.rows[0]?.schedule): undefined;
-				
-				if(new Date() < scheduleOfMatter){
-					return res.json({
-						error: 1,
-						message: "You can only get the data when the time enters the schedule of the material " + scheduleOfMatter.toLocaleString("en-US")
-					})
-				}
-			}
+			})
 			
-			let sql_get_mattdiscuss = {
-				text: 'SELECT matter_discussions.*, u.name , email, gender, photo  FROM matter_discussions INNER JOIN users u ON "user" = user_id WHERE matt = $1 ORDER BY date',
-				values: [req.params.id_matt]
-			}
-			
-			discussionData = await querySync(sql_get_mattdiscuss);
-			res.json({data: discussionData.rows})
 			
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 	},
@@ -102,36 +85,16 @@ module.exports = {
 	/*-----------------add-------------------------*/
 	async addMattDiscuss(req, res, next){
 		
-		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Matter_discussion')){
-			return res.json({
-				error: 1,
-				message: 'You have no access to add a matter discussion'
-			})
-		}
-		
-		const errInsert = validationResult(req);
-		let { date, text, matt } = req.body;
-		
-		if(!errInsert.isEmpty()){
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
-		const query = {
-			text: 'INSERT INTO matter_discussions(date, text, matt, "user") VALUES($1, $2, $3, $4) RETURNING *',
-			values: [date, text, matt, req.user?.user_id]
-		}
 		try{
-			const result = await querySync(query);
+			
+			const result = await discussService.add(req);
 			
 			res.json({
 				data: result.rows
 			})
+			
 		}catch(err){
-			console.log(err)
+			
 			next(err)
 		}
 	},

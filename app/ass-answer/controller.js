@@ -1,16 +1,3 @@
-const { validationResult } = require('express-validator');
-const path = require('path');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
-const searchFileOfArrays = require('../utils/searchFileOfArrays');
-const toSqlArray = require('../utils/toSqlArray');
-const appError = require('../utils/appError');
-const config = require('../../config');
-const fs = require('fs');
-
-const { querySync } = require('../../services/query');
-const matt_ass = require('../../services/table')('matt_ass');
-
 const assService = require('../matt-ass/service');
 const assAnsService = require('./service');
 
@@ -27,18 +14,19 @@ module.exports = {
 				
 				try{
 					
-					if(err) await assService.studentAuthor(id_matt_ass, req);
+					if(err){
+						teacher = false;
+						await assService.studentAuthor(id_matt_ass, req);
+					}
 					
-					teacher = false;
-					
+					const { rows } = await assAnsService.getByAss(req, teacher)
+					res.json({data: rows})
+				
 				}catch(err){
 					next(err)
 				}
 				
 			})
-		
-			const { rows } = await assAnsService.getByAss(req, teacher)
-			res.json({data: rows})
 			
 		}catch(err){
 			next(err);
@@ -48,7 +36,34 @@ module.exports = {
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
 		
-		res.json({data: req.data});
+		try{
+			
+			const id_ass_ans = req.params.id_ass_ans || undefined;
+			let teacher = true;
+			
+			await assAnsService.teacherAuthor(id_ass_ans, req, async (teacherData, err)=>{
+				
+				try{
+					
+					if(err){
+						
+						teacher = false;
+						await assAnsService.studentAuthor(id_ass_ans, req);
+					}
+					
+					const { rows: data } = await assAnsService.getSingle(id_ass_ans, teacher)
+					
+					res.json({ data: data[0] });
+					
+				}catch(err){
+					next(err)
+				}
+				
+			})
+			
+		}catch(err){
+			next(err)
+		}
 		
 	},
 	
@@ -115,10 +130,27 @@ module.exports = {
 		
 		try{
 			
-			await searchFileOfArrays(req.data?.[0]?.content, req.params.filename)
+			const id_ass_ans = req.params.id_ass_ans || undefined;
+			let teacher = true;
 			
-			res.json({
-				path: `/private/document/${req.user.user_id}/${req.params.filename}`
+			await assAnsService.teacherAuthor(id_ass_ans, req, async (teacherData, err)=>{
+				
+				try{
+					
+					if(err){
+						
+						teacher = false;
+						await assAnsService.studentAuthor(id_ass_ans, req);
+					}
+					
+					const path = await assAnsService.getSingleAttachment(req, teacher);
+					
+					res.json({ path })
+					
+				}catch(err){
+					next(err)
+				}
+				
 			})
 			
 		}catch(err){

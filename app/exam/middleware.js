@@ -1,49 +1,59 @@
-const policyFor = require('../policy');
-const { querySync } = require('../../services/query');
-const { subject } = require('@casl/ability');
+const { body } = require('express-validator');
 
-async function singleExamAuthor(req, res, next){
+//utils
+const isDate = require('../utils/isDate2');
+//class services
+const classService = require('../class/service');
+
+const isIntMessage = "Input must be a integer";
+const isNullMessage = "Input must be null"
+const noEmptyMsg = 'This field must be filled';
+const lengthMsg = 'Must be less than 255 or greater than 5 characters long';
+const lengthMsg255 = 'Must be less than 255 characters long';
+const lengthMsg5 = 'Must be less than 255 characters long';
+const arrMsg = "Must be Array"
+
+//custom validator
+function isNull(val){
 	
-	const id_exm = parseInt(req.params.id_exm) || undefined;
-	try{
-		//get the main data and authorize
-		const query = {
-			text: 'SELECT e.*, c.class_name, c.description class_description, c.teacher, t.name teacher_name, t.email teacher_email, t.gender teacher_gender, t.photo teacher_photo FROM exams e INNER JOIN classes c ON e.code_class=c.code_class INNER JOIN users t ON c.teacher = t.user_id WHERE id_exm = $1',
-			values: [id_exm]
-		}
-		const { rows: examData } = await querySync(query);
+	if(val !== null){
 		
-		//authorize
-		
-		const policy = policyFor(req.user);
-		let subjectExam = subject('Exam',{user_id: examData[0]?.teacher});
-		
-		if(!policy.can('readsingle',subjectExam)){
-			
-			let sqlGetStudent = {
-				text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
-				values: [examData[0]?.code_class, req.user?.user_id]
-			}
-			const { rows: studentData} = await querySync(sqlGetStudent);
-			
-			subjectExam = subject('Exam',{user_id: studentData[0]?.user});
-			
-			if(!policy.can('readsingle', subjectExam)){
-				return res.json({
-					error: 1,
-					message: "You're not allowed to get a single exam data"
-				})
-			}
-		}
-		
-		req.data = examData;
-		next();
-		
-	}catch(err){
-		next(err);
+		throw new Error('Data must be null')
 	}
+	 
+	return true;
 }
 
+async function isMine(codeClass, { req }){
+	
+	return await classService.teacherAuthor(codeClass, req, (teacherData, err)=>{
+		
+		if(err) return Promise.reject("Code class isn't found");
+		
+		return true;
+	})
+}
+
+//custoom sanitizer
+ function nullSanitizer(value){
+	 return  value === 'null'? JSON.parse(value): value;
+}
+
+const addValid = [
+	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
+	body('schedule').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
+	body('code_class').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine)
+]
+const editValid = [
+	body('duration').if(body('duration').exists()).isInt().bail().withMessage(isIntMessage),
+	// body('attachment').if(body('attachment').exists()).if(body('attachment').not().isObject()).custom(isNull)
+	// .withMessage(isObjectOrNnull),
+	body('attachment').if(body('attachment').exists()).customSanitizer(nullSanitizer).custom(isNull).withMessage(isNullMessage),
+	body('schedule').if(body('schedule').exists()).custom(isDate),
+	// body('code_class').if(body('code_class').exists()).isInt().bail().withMessage(isIntMessage).isLength({max: 5}).bail().withMessage(lengthMsg5).custom(isMine)
+]
+
 module.exports = {
-	singleExamAuthor
+	addValid,
+	editValid
 }

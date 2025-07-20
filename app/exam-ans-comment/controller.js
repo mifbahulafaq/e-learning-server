@@ -1,7 +1,5 @@
-const { querySync } = require('../../services/query');
-const { validationResult } = require('express-validator');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
+const service = require('./service');
+const ansService = require('../exam-answer/service');
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -9,53 +7,25 @@ module.exports = {
 		
 		try{
 			
-			//authorization
-			const policy = policyFor(req.user);
-			const id_exm_ans = parseInt(req.params.id_exm_ans)
+			//teacher authorization
+			const id_exm_ans = parseInt(req.params.id_exm_ans) || undefined;
 			
-			let sql_get_teacher = {
-					text: `SELECT * FROM exam_answers ea
-						   INNER JOIN exams e ON ea.id_exm = e.id_exm
-						   INNER JOIN classes c ON e.code_class = c.code_class 
-						   WHERE id_exm_ans = $1`,
-					values: [ id_exm_ans || undefined ]
+			await ansService.teacherAuthor(id_exm_ans, req, async (teacherData, err)=>{
+				
+				try{
+					//student authorization
+					if(err) await ansService.studentAuthor(id_exm_ans, req);
+					
+					const result = await service.getByAns(id_exm_ans)
+					
+					res.json({data: result.rows});
+					
+				}catch(err){
+					next(err)
 				}
-				
-			const getTeacher = await querySync(sql_get_teacher);
-			
-			let subjectExmAnsComments = subject('Exam_answer_comment', {user_id: getTeacher.rows[0]?.teacher})
-			
-			if(!policy.can('read', subjectExmAnsComments)){
-				
-				let sql_get_student = {
-					text: 'SELECT * FROM exam_answers WHERE id_exm_ans = $1',
-					values: [id_exm_ans || undefined]
-				}
-				
-				const getStudent = await querySync(sql_get_student)
-				
-				subjectExmAnsComments = subject('Exam_answer_comment', {user_id: getStudent.rows[0]?.user_id})
-				
-				if(!policy.can('read', subjectExmAnsComments)){
-					return res.json({
-						error: 1,
-						message: "You're not allowed to get answer comments"
-					})
-				}
-			}
-			
-			let readSql = {
-				text: `SELECT ac.*, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user", to_jsonb(ea.*) exam_answer FROM exam_answer_comments ac
-					   INNER JOIN "users" u ON ac.user_id = u.user_id 
-					   INNER JOIN exam_answers ea ON ac.id_exm_ans = ea.id_exm_ans WHERE ac.id_exm_ans = $1 ORDER BY ac.date`,
-				values: [id_exm_ans || undefined]
-			}
-			
-			const result = await querySync(readSql);
-			res.json({data: result.rows})
+			})
 			
 		}catch(err){
-			console.log(err)
 			next(err);
 		}
 	},
@@ -102,30 +72,9 @@ module.exports = {
 	/*-----------------add-------------------------*/
 	async add(req, res, next){
 		
-		let policy = policyFor(req.user);
-		if(!policy.can('create', 'Exam_answer_comment')){
-			return res.json({
-				error: 1,
-				message: 'You have no access to add a answer comment'
-			})
-		}
-		
-		const errInsert = validationResult(req);
-		if(!errInsert.isEmpty()){
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
-		let { text, id_exm_ans } = req.body;
-		const insertSql = {
-			text: 'INSERT INTO exam_answer_comments (text, id_exm_ans, user_id) VALUES($1, $2, $3) RETURNING *',
-			values: [text, id_exm_ans, req.user?.user_id]
-		}
-		
 		try{
-			const result = await querySync(insertSql);
+			
+			const result = await service.add(req);
 			
 			res.json({
 				data: result.rows

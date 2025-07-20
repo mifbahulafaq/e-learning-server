@@ -45,6 +45,8 @@ const isFunc = require('../app/utils/isFunc');
 // module.exports = Authorization;
 
 module.exports = function(entity, login_user, userid_of_data, cb){
+	console.log(userid_of_data)
+	//the contain of userid_of_data must be either { teacher } for teahcer or {user_id } for student
 		
 	const isTeacher = Object.keys(userid_of_data).indexOf('teacher') >= 0;
 
@@ -54,9 +56,11 @@ module.exports = function(entity, login_user, userid_of_data, cb){
 	
 	if(!policy.can('readsingle', subject(entity,{ user_id }))) err = appError(`You have no access to the single ${entity}`, 200);
 	
+	//if there's a callback
 	if(isFunc(cb)) return cb(userid_of_data, err);
 	
+	//if no callback, it will return userData or throw err
+	//and if not throw error, it means it will return userData of obj, not empty obj 
 	if(err) throw err;
-	
 	return userid_of_data;
 }

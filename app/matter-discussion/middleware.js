@@ -12,7 +12,6 @@ const lengthMsg5 = 'Must be less than 5 characters long';
 const intMsg = 'Input must be integer';
 
 const addValid = [
-	body('date').notEmpty().bail().withMessage(noEmptyMsg).custom(isDate),
 	body('text').notEmpty({ignore_whitespace:true}).bail().withMessage(noEmptyMsg),
 	body('matt').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(intMsg).custom(isMine)
 ]
@@ -21,17 +20,6 @@ module.exports = {
 }
 
 //custom validation
-function isDate(input){
-	
-	const isValid = moment(input, "YYY-MM-DD HH:mm:ss", true).isValid();
-	
-	if(!isValid){
-		throw new Error(`The format of ${input} isn't date`);
-	}
-	
-	return true;
-	
-}
 async function isMine(id_matt, {req}){
 	
 	//teacher authorizing..

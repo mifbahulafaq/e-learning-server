@@ -12,7 +12,7 @@ const singleAuthorization = require('../../services/singleAuthorization');
 const filterData = require('../utils/filterData');
 const toSqlArray = require('../utils/toSqlArray');
 const appError = require('../utils/appError');
-
+const validateBody = require('../utils/validateBody');
 
 const mattAssColNames = ['duration', 'title', 'text', 'id_matt', 'attachment'];
 
@@ -156,7 +156,7 @@ async function findByMatter(req, teacherRole, id_class_student){
 		if(parseInt(no_answer)){
 			
 			const additionalSql = {
-				text: !teacherRole? "WHERE student = $2": "",
+				text: !teacherRole? "WHERE user_id = $2": "",
 				values: !teacherRole? [id_matt, id_class_student]: [id_matt]
 			}
 			return {
@@ -168,7 +168,7 @@ async function findByMatter(req, teacherRole, id_class_student){
 		}else{
 			
 			const additionalSql = {
-				text: !teacherRole? "AND student = $2": "",
+				text: !teacherRole? "AND user_id = $2": "",
 				values: !teacherRole? [id_matt, id_class_student]: [id_matt]
 			}
 			return {
@@ -192,15 +192,8 @@ async function findByMatter(req, teacherRole, id_class_student){
 
 async function create(req){
 	
-	const errInsert = validationResult(req);
-			
-	if(!errInsert.isEmpty()){
-		
-		const err = appError('Insert', 200);
-		err.field = errInsert.mapped();
-		
-		throw err;
-	}
+	//validating..
+	validateBody(req, 'Insert');
 	
 	let { body, file } = req;
 	

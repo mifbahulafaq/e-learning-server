@@ -1,6 +1,11 @@
 const policyFor = require('../policy');
 const { querySync } = require('../../services/query');
 const { subject } = require('@casl/ability');
+const appError = require('../utils/appError');
+const { body, check } = require('express-validator');
+const moment = require('moment');
+
+const examService = require('../exam/service');
 
 async function singleExmAnswerAuthor(req, res, next){
 	
@@ -39,6 +44,56 @@ async function singleExmAnswerAuthor(req, res, next){
 	}
 }
 
+const isIntMessage = "Input must be a integer";
+const noEmptyMsg = 'This field must be filled';
+const lengthMsg = "mustn't be more than 3 digits ";
+const floatMsg = "mustn't be less than 100";
+
+const addValid = [
+	body('id_exm').notEmpty().bail().withMessage(noEmptyMsg).isInt().bail().withMessage(isIntMessage).custom(isMine),
+	body('content').notEmpty().bail().withMessage(noEmptyMsg)
+]
+const rateValid = [
+	body('score').notEmpty().bail().withMessage(noEmptyMsg).isFloat({max: 100}).withMessage(floatMsg)
+]
+
 module.exports = {
+	addValid,
+	rateValid,
 	singleExmAnswerAuthor
+}
+
+async function isMine(id_exm, { req }){
+	
+	// is it mine? and checking deadline
+	const sql = {
+		text: ' SELECT e.* FROM exams e WHERE id_exm = $1 AND EXISTS (SELECT * FROM class_students cs WHERE cs.class = e.code_class AND user_id = $2)',
+		values: [id_exm, req.user.user_id]
+	}
+	
+	const { rows: examData, rowCount } = await querySync(sql);
+	
+	if(rowCount){
+		
+		const duration = parseInt(examData[0].duration);
+		
+		if(duration){
+			
+			//convert the raw duration value to current time
+			const deadline = (new Date(examData[0].schedule)).getTime() + duration;
+			
+			if(Date.now() > deadline){
+				//this code is to send a error to the ctrler and thrown there. if thrown here, will be error field, i won't wan that way to happen
+				req.errorFromBody = {
+					message: "You can't answer the exam since the time enters the deadline",
+					status: 200
+				}
+			}
+		}
+		
+		return true
+	}
+	
+	return Promise.reject("Id exam isn't found");
+	
 }

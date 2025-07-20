@@ -10,7 +10,7 @@ module.exports = {
 			const code_class = parseInt(req.params.code_class) || undefined;
 			
 			//authorizing..
-			await classService.teacherAuthor(req, async (code_class, teacherData, err)=>{
+			await classService.teacherAuthor(code_class, req, async (teacherData, err)=>{
 				
 				try{
 				
@@ -41,17 +41,23 @@ module.exports = {
 		try{
 					
 			const id_matt = parseInt(req.params.id_matt) || undefined;
+			let isTeacher = true;
 			
 			//authorizing...
 			await matterService.teacherAuthor(id_matt, req, async (teacherData, err)=>{
 				
 				try{
 				
-					if(err) await matterService.studentAuthor(id_matt, req);
+					if(err){
+						
+						isTeacher = false;
+						await matterService.studentAuthor(id_matt, req);
+						
+					}
 					
 					//getting single matter...
 					
-					const result = await matterService.getSingle(id_matt);
+					const result = await matterService.getSingle(isTeacher, id_matt);
 						
 					res.json({
 						data: result.rows
@@ -80,16 +86,22 @@ module.exports = {
 		try{
 			
 			const id_matt = parseInt(req.params.id_matt) || undefined;
+			let isTeacher = true;
 			
 			//authorizing...
 			await matterService.teacherAuthor(req, async (id_matt, teacherData, err)=>{
 				
 				try{
 					
-					if(err) await matterService.studentAuthor(id_matt, req);
+					if(err){
+						
+						isTeacher = false;
+						await matterService.studentAuthor(id_matt, req);
+						
+					}
 					
 					//getting the path of single attachment...
-					const path = await matterService.getSingleAttachment(req.user.user_id, id_matt, req.params.filename)
+					const path = await matterService.getSingleAttachment(isTeacher, req)
 					
 					res.json({ path })
 					
@@ -113,7 +125,7 @@ module.exports = {
 		try{
 			
 			//adding new data...
-			const result = await matterService.create(req, {body, files});
+			const result = await matterService.create(req);
 			
 			res.json({
 				data: result.rows
@@ -161,7 +173,7 @@ module.exports = {
 			//deleting..
 			const resultDelete = await matterService.deleteSingle(id_matt);
 			
-			return res.json({
+			res.json({
 				message: 'The data is successfully deleted',
 				data: resultDelete.rows
 			})

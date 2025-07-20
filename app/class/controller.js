@@ -35,7 +35,7 @@ module.exports = {
 					//getting single class..
 					const resultClass = await service.getSingle(code_class);
 				
-					return res.json({ data: resultClass.rows[0]});
+					res.json({ data: resultClass.rows[0]});
 					
 				}catch(err){
 					

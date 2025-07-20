@@ -1,14 +1,5 @@
-const { querySync } = require('../../services/query');
-const exam_answers = require('../../services/table')('exam_answers');
-const { validationResult } = require('express-validator');
-const path = require('path');
-const policyFor = require('../policy');
-const { subject } = require('@casl/ability');
-const toSqlArray = require('../utils/toSqlArray');
-const appError = require('../utils/appError');
-const config = require('../../config');
-const fs = require('fs')
-const searchFileOfArrays = require('../utils/searchFileOfArrays');
+const service = require('./service');
+const examService = require('../exam/service');
 
 module.exports = {
 	/*-----------------get-------------------------*/
@@ -16,77 +7,37 @@ module.exports = {
 		
 		try{
 			
-			const idExm = parseInt(req.params.id_exm) || undefined
-			const policy = policyFor(req.user);
+			const idExm = parseInt(req.params.id_exm) || undefined;
+			let isTeacher = true;
 			
 			//start processing teacher author
-			let sql = {
-				text: 'SELECT * FROM exams e INNER JOIN classes c ON e.code_class = c.code_class WHERE id_exm=$1',
-				values: [idExm]
-			}
-			const { rows: classData } = await querySync(sql);
-			
-			let subjectExamAns = subject('Exam_answer',{user_id: classData[0]?.teacher})
-			
-			if(!policy.can('read', subjectExamAns)){
-			//end of processing teacher author
-			
-			//start processing student author
-				sql = {
-					text: 'SELECT * FROM exams WHERE id_exm=$1',
-					values: [idExm || undefined]
-				}
-				const { rows: examData } = await querySync(sql);
+			await examService.teacherAuthor(idExm, req, async (teacherData, err)=>{
 				
-				sql = {
-					text: 'SELECT * FROM class_students WHERE class=$1 AND "user"=$2',
-					values: [ examData[0]?.code_class, req.user.user_id]
-				}
-				const { rows: studentData } = await querySync(sql);
-				subjectExamAns = subject('Exam_answer',{user_id: studentData[0]?.user})
+				try{
 				
-				if(!policy.can('read', subjectExamAns)){
-				//end of processing student author
-				
-					return res.json({
-						error: 1,
-						message: "You're not allowed to get exam answers"
-					})
+					if(err){
+						
+						isTeacher = false;
+						
+						await examService.studentAuthor(idExm, req);
+						
+					}
+					
+					const { rows: data } = await service.getByExam(req, isTeacher);
+					
+					res.json({ data });
+				}catch(err){
+					
+					next(err)
+					
 				}
 				
-				sql = {
-					text: `SELECT 
-						ea.*, 
-						(SELECT count(*) FROM exam_answer_comments WHERE id_exm_ans = ea.id_exm_ans) total_comments,
-						to_jsonb(e.*) exam, 
-						to_jsonb(c.*) class 
-						FROM exam_answers ea 
-						INNER JOIN exams e ON ea.id_exm=e.id_exm 
-						INNER JOIN classes c ON e.code_class=c.code_class 
-						WHERE ea.id_exm = $1 AND ea.user_id = $2`,
-					values: [idExm || undefined, req.user.user_id]
-				}
+			})
+			// const { opposite } = req.query;
+			
+			// if(parseInt(opposite)){
 				
-				const { rows: userData } = await querySync(sql);
-				return res.json({data: userData})
-				
-			}
-			
-			const { opposite } = req.query;
-			
-			if(parseInt(opposite)){
-				
-			}
-			
-			sql = {
-				text: `SELECT ea.*, (SELECT count(*) FROM exam_answer_comments WHERE id_exm_ans = ea.id_exm_ans) total_comments, jsonb_build_object('name', u.name, 'email', u.email, 'gender', u.gender, 'photo', u.photo) "user" FROM exam_answers ea
-					   INNER JOIN users u ON ea.user_id=u.user_id
-					   WHERE ea.id_exm = $1`,
-				values: [idExm || undefined]
-			}
-			
-			const { rows: teacherData } = await querySync(sql);
-			res.json({data: teacherData})
+			// }
 			
 		}catch(err){
 			next(err);
@@ -96,7 +47,30 @@ module.exports = {
 	/*-----------------get single-------------------------*/
 	async getSingle(req, res, next){
 		
-		res.json({data: req.data})
+		try{
+		
+			const id_exm_ans = parseInt(req.params.id_exm_ans) || undefined;
+			
+			await service.teacherAuthor(id_exm_ans, req, async (teacherData, err)=>{
+				
+				try{
+				
+					if(err) await service.studentAuthor(id_exm_ans, req);
+					
+					const { rows : data } = await service.getSingle(id_exm_ans);
+					
+					res.json({ data });
+				}catch(err){
+					
+					next(err);
+					
+				}
+				
+			})
+			
+		}catch(err){
+			next(err)
+		}
 		
 	},
 	
@@ -105,48 +79,7 @@ module.exports = {
 		
 		try{
 			
-			const { errorFromField, body, file, user } = req;
-			
-			const errInsert = validationResult(req);
-			
-			if(!errInsert.isEmpty()){
-				
-				const err = appError('Insert', 200);
-				err.field = errInsert.mapped();
-				
-				throw err;
-			}
-			
-			//get error from field
-			if(errorFromField) throw appError(errorFromField.message, errorFromField.status);
-		
-			let { id_exm } = body;
-			let content = [];
-			if(file){
-				content[0] = file.filename
-				content[1] = file.originalname
-			}
-			
-			//checking the user's answers
-			const where = {
-				user_id: user?.user_id,
-				id_exm: id_exm
-			}
-			const getUser = await exam_answers.find(where).execute();
-			
-			content = toSqlArray(content)
-			
-			if(getUser.rowCount){
-				throw appError('The answer has been added', 200);
-			}
-			
-			sql = {
-				text: 'INSERT INTO exam_answers(content, id_exm, user_id) VALUES($1, $2, $3) RETURNING *',
-				values: [ content, id_exm, user?.user_id ]
-			}
-			
-			//insert
-			const insertData = await querySync(sql);
+			const insertData = await service.insert(req);
 			
 			res.json({
 				data: insertData.rows
@@ -161,45 +94,14 @@ module.exports = {
 	async rate(req, res, next){
 		
 		try{
-		
+			
 			const id_exm_ans = parseInt(req.params.id_exm_ans);
-			const policy = policyFor(req.user)
-			let sql = {
-				text: "SELECT c.teacher FROM exam_answers ea INNER JOIN exams e ON ea.id_exm=e.id_exm INNER JOIN classes c ON e.code_class=c.code_class WHERE ea.id_exm_ans=$1",
-				values: [id_exm_ans || undefined]
-			}
+		
+			await service.teacherAuthor(id_exm_ans, req);
 			
-			const cekTeacher = await querySync(sql)
-			const subjectExamAns = subject("Exam_answer", { user_id: cekTeacher.rows[0]?.teacher })
+			const { rows: data } = await service.rate(req);
 			
-			if(!policy.can('update', subjectExamAns)){
-				return res.json({
-					error: 1,
-					message: "you're not allowed to add a score"
-				})
-			}
-			
-			const errInsert = validationResult(req);
-			
-			if(!errInsert.isEmpty()){
-				
-				return res.json({
-					error: 1,
-					field: errInsert.mapped()
-				})
-			}
-			
-			sql = {
-				text: 'UPDATE exam_answers SET score = $1, rated = true WHERE id_exm_ans = $2 RETURNING *',
-				values: [ req.body.score, id_exm_ans ]
-			}
-			
-			//updating the data
-			let updateSCore = await querySync(sql);
-			
-			res.json({
-				data: updateSCore.rows
-			})
+			res.json({ data });
 			
 		}catch(err){
 			
@@ -253,18 +155,27 @@ module.exports = {
 	async getAttachment(req, res, next){
 		
 		try{
+		
+			const id_exm_ans = parseInt(req.params.id_exm_ans) || undefined;
 			
-			const data = req.data?.[0]?.content? [req.data?.[0]?.content]: [];
-			
-			await searchFileOfArrays(data, req.params.filename)
-			
-			res.json({
-				path: `/private/document/${req.user.user_id}/${req.params.filename}`
+			await service.teacherAuthor(id_exm_ans, req, async (teacherData, err)=>{
+				
+				try{
+				
+					if(err) await service.studentAuthor(id_exm_ans, req);
+					
+					const path = await service.getSingleAttachment(req);
+					
+					return res.json({ path });
+				}catch(err){
+					next(err);
+				}
+				
 			})
+			
 		}catch(err){
 			next(err)
 		}
-		
 		
 	}
 }
