@@ -1,9 +1,9 @@
 const { querySync } = require('../../services/query');
 const users = require('../../services/table')('users');
-const path = require('path')
-const config = require('../../config')
-const { removeFiles } = require('../../services/file')
-const appError = require('../utils/appError')
+const path = require('path');
+const config = require('../../config');
+const { removeFiles } = require('../../services/file');
+const appError = require('../utils/appError');
 
 module.exports = {
 	

@@ -12,14 +12,12 @@ router.get('/users/:user_id', userControllers.getSingle);
 router.put(
 	'/users/:user_id', 
 	multerMidd(uploadPhoto).single('photo'), 
-	middlewares.authorization('update'),
 	middlewares.updateValidator, 
 	userControllers.update
 );
 router.put(
 	'/users/:user_id/password', 
 	multer().none(), 
-	middlewares.authorization('update'),
 	middlewares.passValidator, 
 	userControllers.updatePass
 );

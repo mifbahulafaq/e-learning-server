@@ -6,6 +6,7 @@ const config = require('../../config')
 const path = require('path')
 const appError = require('../utils/appError')
 
+const singleAuthorization = require('../../services/singleAuthorization');
 const userService = require('./service')
 const authService = require('../auth/service')
 
@@ -14,18 +15,12 @@ module.exports = {
 	
 	async getSingle (req, res, next){
 		
-		const user_id = parseInt(req.params.user_id) || undefined
-		const policy = policyFor(req.user)
-		const subjectUser = subject('User', { user_id })
-	
-		if(!policy.can('readsingle', subjectUser)){
-			return res.json({
-				error: 1,
-				message: "You aren't allow to read this data"
-			})
-		}
-		
 		try{
+			
+			const user_id = parseInt(req.params.user_id) || undefined;
+			
+			//authorizing..
+			singleAuthorization('User', req.user, { user_id });
 			
 			const userData = await userService.findUser({user_id})
 			const { token, password, ...dataRemains } = userData.rows[0];
@@ -40,19 +35,22 @@ module.exports = {
 	},
 	async update (req, res, next){
 		
-		const user_id = parseInt(req.params.user_id) || undefined
-		const errInsert = validationResult(req)
-		
-		if(!errInsert.isEmpty()){
-			
-			const err = appError('Insert', 200);
-			err.field = errInsert.mapped();
-			
-			throw err;
-			
-		}
-		
 		try{
+			
+			const user_id = parseInt(req.params.user_id) || undefined;
+			
+			//authorizing..
+			singleAuthorization('User', req.user, { user_id });
+			
+			const errInsert = validationResult(req)
+			
+			if(!errInsert.isEmpty()){
+				
+				const err = appError('Insert', 200);
+				err.field = errInsert.mapped();
+				
+				throw err;
+			}
 			
 			//updating
 			if(req.file?.filename) req.body.photo = req.file?.filename;
@@ -76,18 +74,22 @@ module.exports = {
 	
 	async updatePass (req, res, next){
 		
-		const user_id = parseInt(req.params.user_id) || undefined
-		const errInsert = validationResult(req)
-		
-		if(!errInsert.isEmpty()){
-			
-			return res.json({
-				error: 1,
-				field: errInsert.mapped()
-			})
-		}
-		
 		try{
+			
+			const user_id = parseInt(req.params.user_id) || undefined;
+	
+			//authorizing..
+			singleAuthorization('User', req.user, { user_id });
+			
+			const errInsert = validationResult(req)
+			
+			if(!errInsert.isEmpty()){
+				
+				return res.json({
+					error: 1,
+					field: errInsert.mapped()
+				})
+			}
 			
 			const { new_password } = req.body
 

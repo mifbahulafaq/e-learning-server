@@ -1,7 +1,7 @@
 const { body } = require('express-validator');
 
 //utils
-const isDate = require('../utils/isDate2');
+const isDate = require('../utils/isDate2')("YYYY-MM-DD HH:mm:ss");
 //class services
 const classService = require('../class/service');
 

@@ -3,7 +3,7 @@ const { subject } = require('@casl/ability');
 const { body } = require('express-validator');
 const { querySync } = require('../../services/query');
 const matters = require('../../services/table')('matters');
-const isDate2 = require('../utils/isDate2');
+const isDate2 = require('../utils/isDate2')("YYYY-MM-DD HH:mm:ss");
 const classService = require('../class/service');
 
 const isIntMessage = "Input must be a integer";
