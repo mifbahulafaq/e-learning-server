@@ -10,8 +10,8 @@ const toSqlArray = require('../utils/toSqlArray');
 const filterData = require('../utils/filterData');
 const isDate = require('../utils/isDate');
 const searchFileOfArrays = require('../utils/searchFileOfArrays');
-const appError = require('../utils/appError')
-const validateBody = require('../utils/validateBody')
+const appError = require('../utils/appError');
+const validateBody = require('../utils/validateBody');
 
 const matterColNames = ['schedule', 'name', 'description', 'attachment', 'class', 'status'];
 

@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const passport = require('passport');
 const bcrypt = require('bcrypt');
 const config = require('../../config');
+const users = require('../../services/table')('users');
 
 //services
 const authService = require('./service')
@@ -28,7 +29,7 @@ module.exports = {
 		
 		try{
 			
-			let result = await userService.findUser({ email: body_email })
+			let result = await users.find({ email: body_email }).execute();
 			
 			if(result.rowCount){
 				
@@ -114,7 +115,7 @@ module.exports = {
 			
 			res.json({
 				data: userData,
-				message: 'Password has benn changed'
+				message: 'Password has been changed'
 			})
 			
 		}catch(err){

@@ -2,7 +2,7 @@ const { querySync } = require('../services/query');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 
-const userService = require('../app/user/service');
+const users = require('../services/table')('users');
 
 const appError = require('../app/utils/appError');
 const decipher = require('../app/utils/decipher');
@@ -33,7 +33,7 @@ module.exports = async function(req, res, next){
 			
 			req.user = jwt.verify(token, config.accessTokenSecretKey);
 			
-			const user = await userService.findUser({user_id: req.user.user_id});
+			const user = await users.find({user_id: req.user.user_id}).execute();
 			
 			if(!user.rowCount) return next(appError(tokenMessage, errorStatus));
 			
