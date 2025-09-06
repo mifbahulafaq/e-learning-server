@@ -7,7 +7,6 @@ module.exports = {
 		
 		try{
 			
-			const policy = policyFor(req.user);
 			const code_class = parseInt(req.params.code_class) || undefined;
 			
 			//teacher authorizing...

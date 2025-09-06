@@ -8,7 +8,7 @@ module.exports = {
 		try{
 			
 			//getting data..
-			const result = await service.get(req.query, req.user.user_id);
+			const result = await mattAssService.get(req.query, req.user.user_id);
 			
 			//response
 			res.json(result)
