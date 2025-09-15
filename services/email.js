@@ -20,8 +20,8 @@ module.exports = {
 			const accessToken = await new Promise((resolve, reject)=>{
 				
 				oauth2Client.getAccessToken((err, token)=>{
-					
-					if(err) reject('Failed to create acces token');
+					console.log(err)
+					if(err) reject('Failed to create access token');
 					
 					resolve(token);
 				})

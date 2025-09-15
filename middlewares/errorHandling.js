@@ -6,7 +6,9 @@ module.exports = (err,req,res,next)=>{
 	//res.locals.error = req.app.get('env') === 'development' ? err : {};
 	
 	//removing the files, if exist
-	console.log(err)
+
+	console.log('error', err)
+	
 	if(req.files){
 		removeFiles(req.files);
 	}else if(req.file){
@@ -18,6 +20,6 @@ module.exports = (err,req,res,next)=>{
 	const data = {status: err.status, error: 1, message: err.message};
 	if(err.field) data.field = err.field;
 	
-	return res.status(err.status).json(data);
+	res.status(err.status).json(data);
 	
 }

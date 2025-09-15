@@ -69,6 +69,7 @@ module.exports = {
 			`
 		}
 		
+		console.log('send email')
 		await emailService.sendEmail(message);
 			
 	},

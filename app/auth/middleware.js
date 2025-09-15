@@ -1,4 +1,5 @@
 const { body } = require('express-validator');
+const users = require('../../services/table')('users');
 const bcrypt = require('bcrypt');
 const HASH_ROUND = 10;
 
@@ -8,7 +9,7 @@ const emailMsg = "Invalid Email"
 
 const authValidator = [
 	body('name').notEmpty().bail().withMessage(noEmptyMsg).isLength({min:3, max:255}).withMessage(lengthMsg),
-	body('gender').notEmpty().bail().withMessage(noEmptyMsg).isIn(['Male','Female']),
+	body('gender').notEmpty().bail().withMessage(noEmptyMsg).isIn(['male','female']),
 	body('email').notEmpty().bail().withMessage(noEmptyMsg).isEmail().withMessage(emailMsg).custom(emailUnique),
 	body('password')
 	.notEmpty().bail().withMessage(noEmptyMsg)

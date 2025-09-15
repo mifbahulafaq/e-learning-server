@@ -170,23 +170,24 @@ module.exports = {
 	
 	async register(req,res, next){
 		
-		const errInsert = validationResult(req);
-		
-		if(!errInsert.isEmpty()){
-			
-			const err = appError('Insert', 200);
-			err.field = errInsert.mapped();
-			
-			throw err;
-		}
-		
 		try{
+
+			const errInsert = validationResult(req);
+		
+			if(!errInsert.isEmpty()){
+				
+				const err = appError('Insert', 200);
+				err.field = errInsert.mapped();
+				
+				throw err;
+			}
+		
 			
 			let {name, gender, email, password} = req.body;
 			const photo = req.file? req.file.filename : null;
 			
 			await authService.register({name, gender, email: email.toLowerCase(), password, photo})
-			
+			console.log('register is successfull')
 			res.json({
 				message: "An email has been sent. Please check your email address."
 			})
